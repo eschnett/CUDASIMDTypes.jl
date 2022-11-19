@@ -1,0 +1,9 @@
+name = "CUDASIMDTypes"
+uuid = "ba1ee33b-8807-41fd-9812-6d5f2ce04139"
+authors = ["Erik Schnetter <schnetter@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
