@@ -18,13 +18,42 @@ Random.seed!(0)
         function calcr2(a, b, op, r2)
             n = threadIdx().x
             r2[n] = prmt(a[n], b[n], op[n])
-            nothing
+            return nothing
         end
         a = CuArray(a)
         b = CuArray(b)
         op = CuArray(op)
         r2 = CuArray(r2)
         @cuda threads = (iters,) blocks = 1 calcr2(a, b, op, r2)
+        synchronize()
+        r2 = Array(r2)
+
+        @test r1 == r2
+    end
+end
+
+Random.seed!(0)
+@testset "lop3 T=$T LUT=$LUT" for T in [UInt32, Int32], LUT in Val.(rand(UInt8, 10))
+    iters = 100
+
+    a = rand(T, iters)
+    b = rand(T, iters)
+    c = rand(T, iters)
+
+    r1 = lop3.(a, b, c, LUT)
+
+    if CUDA.functional()
+        r2 = zeros(T, iters)
+        function calcr2(a, b, c, r2)
+            n = threadIdx().x
+            r2[n] = lop3(a[n], b[n], c[n], LUT)
+            return nothing
+        end
+        a = CuArray(a)
+        b = CuArray(b)
+        c = CuArray(c)
+        r2 = CuArray(r2)
+        @cuda threads = (iters,) blocks = 1 calcr2(a, b, c, r2)
         synchronize()
         r2 = Array(r2)
 

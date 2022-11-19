@@ -1,3 +1,3 @@
 # CUDASIMDTypes
 
-Explicit SIMD types that live in an `UInt32`.
+Explicit SIMD types that can live in 32 bits.
