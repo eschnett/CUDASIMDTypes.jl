@@ -57,4 +57,12 @@ function make_lop3_lut(f)
     return lut
 end
 
+################################################################################
+
+export bitifelse
+bitifelse(cond::UInt32, x::UInt32, y::UInt32) = ((cond & x) | (~cond & y))::UInt32
+const bitifelse_lut = make_lop3_lut((cond, x, y) -> (cond & x) | (~cond & y))
+CUDA.@device_override bitifelse(cond::UInt32, x::UInt32, y::UInt32) = lop3(cond, x, y, bitifelse_lut)::UInt32
+bitifelse(cond::SmallInt, x::T, y::T) where {T<:SmallInt} = bitifelse(cond % UInt32, x % UInt32, y % UInt32) % T
+
 end

@@ -60,3 +60,32 @@ Random.seed!(0)
         @test r1 == r2
     end
 end
+
+Random.seed!(0)
+@testset "bitifelse T=$T" for T in [UInt32, Int32]
+    iters = 1000
+
+    cond = rand(T, iters)
+    x = rand(T, iters)
+    y = rand(T, iters)
+
+    r1 = bitifelse.(cond, x, y)
+
+    if CUDA.functional()
+        r2 = zeros(T, iters)
+        function calcr2(cond, x, y, r2)
+            n = threadIdx().x
+            r2[n] = bitifelse(cond[n], x[n], y[n])
+            return nothing
+        end
+        cond = CuArray(cond)
+        x = CuArray(x)
+        y = CuArray(y)
+        r2 = CuArray(r2)
+        @cuda threads = (iters,) blocks = 1 calcr2(cond, x, y, r2)
+        synchronize()
+        r2 = Array(r2)
+
+        @test r1 == r2
+    end
+end
