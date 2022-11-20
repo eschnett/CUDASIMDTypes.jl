@@ -3,6 +3,7 @@ module CUDASIMDTypes
 using BFloat16s
 using CUDA
 using LLVM
+using Random
 
 const SmallInt = Union{Int8,Int16,Int32,UInt8,UInt16,UInt32}
 
@@ -97,5 +98,79 @@ CUDA.@device_override bitifelse(cond::UInt32, x::UInt32, y::UInt32) = lop3(cond,
 bitifelse(cond::SmallInt, x::T, y::T) where {T<:SmallInt} = bitifelse(cond % UInt32, x % UInt32, y % UInt32) % T
 
 ################################################################################
+
+export Int4x2
+"""
+    struct Int4x2
+
+A SIMD type holding 2 4-bit integers in a combined 8-bit value.
+"""
+struct Int4x2
+    val::UInt8
+end
+
+Int4x2(a1::Int32, a2::Int32) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
+
+const xor_and_lut = make_lop3_lut((a, b, c) -> (a ⊻ b) & c)
+Base.convert(::Type{Int4x2}, a::NTuple{2,Int8}) = Int4x2(a[1], a[2])
+function Base.convert(::Type{NTuple{2,Int8}}, a::Int4x2)
+    # a1 = a.val ⊻ 0x88                  # a + 8
+    # a2_lo = a1 & 0x0f                  # extract low part
+    a2_lo = lop3(a.val, 0x08, 0x0f, xor_and_lut)
+    a3_lo = a2_lo + 0x78               # a + 128
+    a4_lo = a3_lo ⊻ 0x80               # a
+    # a2_hi = (a1 >>> 0x04) & 0x0f       # extract high part
+    a2_hi = lop3(a.val >>> 0x04, 0x08, 0x0f, xor_and_lut)
+    a3_hi = a2_hi + 0x78               # a + 128
+    a4_hi = a3_hi ⊻ 0x80               # a
+    return (a4_lo % Int8, a4_hi % Int8)::NTuple{2,Int8}
+end
+function Base.convert(::Type{NTuple{2,Int32}}, a::Int4x2)
+    alo8, ahi8 = convert(NTuple{2,Int8}, a)
+    alo32 = convert(Int32, alo8)
+    ahi32 = convert(Int32, ahi8)
+    return (alo32, ahi32)
+end
+
+Base.show(io::IO, a::Int4x2) = print(io, convert(NTuple{2,Int32}, a))
+
+Base.length(::Int4x2) = 1
+
+Base.zero(::Type{Int4x2}) = Int4x2(Int8(0))
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x2}) = Int4x2(rand(UInt8))
+
+Base.:~(a::Int4x2) = Int4x2(~a.val)
+Base.:&(a::Int4x2, b::Int4x2) = Int4x2(a.val & b.val)
+Base.:|(a::Int4x2, b::Int4x2) = Int4x2(a.val | b.val)
+Base.xor(a::Int4x2, b::Int4x2) = Int4x2(a.val ⊻ b.val)
+
+Base.:+(a::Int4x2) = a
+function Base.:-(a::Int4x2)
+    rlo = (-a.val) & 0x0f
+    rhi = -(a.val & 0xf0)
+    return Int4x2(rlo | rhi)
+end
+function Base.:+(a::Int4x2, b::Int4x2)
+    rlo = (a.val + b.val) & 0x0f
+    rhi = (a.val & 0xf0) + (b.val & 0xf0)
+    return Int4x2(rlo | rhi)
+end
+function Base.:-(a::Int4x2, b::Int4x2)
+    rlo = (a.val - b.val) & 0x0f
+    rhi = (a.val & 0xf0) - (b.val & 0xf0)
+    return Int4x2(rlo | rhi)
+end
+function Base.min(a::Int4x2, b::Int4x2)
+    as = convert(NTuple{2,Int32}, a)
+    bs = convert(NTuple{2,Int32}, b)
+    rs = min.(as, bs)
+    return Int4x2(rs...)
+end
+function Base.max(a::Int4x2, b::Int4x2)
+    as = convert(NTuple{2,Int32}, a)
+    bs = convert(NTuple{2,Int32}, b)
+    rs = max.(as, bs)
+    return Int4x2(rs...)
+end
 
 end
