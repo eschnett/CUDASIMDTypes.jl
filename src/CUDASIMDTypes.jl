@@ -99,6 +99,61 @@ bitifelse(cond::SmallInt, x::T, y::T) where {T<:SmallInt} = bitifelse(cond % UIn
 
 ################################################################################
 
+"""
+    d = cvt_pack_s8(a::Int32, b::Int32)
+    d::UInt32
+    d[1] = sat(b)
+    d[2] = sat(a)
+    d[3] = 0
+    d[4] = 0
+"""
+function cvt_pack_s8(a::Int32, b::Int32)
+    # I2IP.S8.S32.SAT
+    return LLVM.Interop.@asmcall("cvt.pack.sat.s8.s32.b32 \$0, \$1, \$2, 0;", "=r,r,r", UInt32, Tuple{Int32,Int32}, a, b)
+end
+
+"""
+    d = cvt_pack_s8(a::Int32, b::Int32, c::UInt32)
+    d::UInt32
+    d[1] = sat(b)
+    d[2] = sat(a)
+    d[3] = c[1]
+    d[4] = c[2]
+"""
+function cvt_pack_s8(a::Int32, b::Int32, c::UInt32)
+    # I2IP.S8.S32.SAT
+    return LLVM.Interop.@asmcall(
+        "cvt.pack.sat.s8.s32.b32 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{Int32,Int32,UInt32}, a, b, c
+    )
+end
+
+################################################################################
+
+"""
+    d = cvt_pack_s16(a::Int32, b::Int32)
+    d::UInt32
+    d[1] = sat(b)
+    d[2] = sat(a)
+"""
+function cvt_pack_s16(a::Int32, b::Int32)
+    return LLVM.Interop.@asmcall("cvt.pack.sat.s16.s32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Int32,Int32}, a, b)
+end
+
+################################################################################
+
+export dp4a
+"""
+    d = dp4a(a::UInt32, b::UInt32, c::Int32)
+    d::Int32
+    d = a[1] * b[1] + a[2] * b[2] + a[3] * b[3] + a[4] * b[4] + c
+"""
+function dp4a(a::UInt32, b::UInt32, c::Int32)
+    # IDP.4A.S8.S8
+    return LLVM.Interop.@asmcall("dp4a.s32.s32 \$0, \$1, \$2, \$3;", "=r,r,r,r", Int32, Tuple{UInt32,UInt32,Int32}, a, b, c)
+end
+
+################################################################################
+
 export Int4x2
 """
     struct Int4x2
@@ -108,6 +163,38 @@ A SIMD type holding 2 4-bit integers in a combined 8-bit value.
 struct Int4x2
     val::UInt8
 end
+
+export Int4x8
+"""
+    struct Int4x8
+
+A SIMD type holding 8 4-bit integers in a combined 32-bit value.
+"""
+struct Int4x8
+    val::UInt32
+end
+
+export Int8x4
+"""
+    struct Int8x4
+
+A SIMD type holding 4 8-bit integers in a combined 32-bit value.
+"""
+struct Int8x4
+    val::UInt32
+end
+
+export Int16x2
+"""
+    struct Int16x2
+
+A SIMD type holding 2 16-bit integers in a combined 32-bit value.
+"""
+struct Int16x2
+    val::UInt32
+end
+
+################################################################################
 
 Int4x2(a1::Int32, a2::Int32) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
 
@@ -171,6 +258,255 @@ function Base.max(a::Int4x2, b::Int4x2)
     bs = convert(NTuple{2,Int32}, b)
     rs = max.(as, bs)
     return Int4x2(rs...)
+end
+
+################################################################################
+
+function Int4x8(a1::Int32, a2::Int32, a3::Int32, a4::Int32, a5::Int32, a6::Int32, a7::Int32, a8::Int32)
+    return Int4x8(bitifelse(0x0f0f0f0f, Int8x4(a1, a3, a5, a7).val << 0x00, Int8x4(a2, a4, a6, a8).val << 0x04))
+end
+
+Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val, a[2].val << 0x04))
+function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
+    # a1 = a.val ⊻ 0x88888888            # a + 8
+    # a2_lo = a1 & 0x0f0f0f0f            # extract low part
+    a2_lo = lop3(a.val, 0x08080808, 0x0f0f0f0f, xor_and_lut)
+    a3_lo = a2_lo + 0x78787878         # a + 128
+    a4_lo = a3_lo ⊻ 0x80808080         # a
+    # a2_hi = (a1 >>> 0x04) & 0x0f0f0f0f # extract high part
+    a2_hi = lop3(a.val >>> 0x04, 0x08080808, 0x0f0f0f0f, xor_and_lut)
+    a3_hi = a2_hi + 0x78787878         # a + 128
+    a4_hi = a3_hi ⊻ 0x80808080         # a
+    return (Int8x4(a4_lo), Int8x4(a4_hi))::NTuple{2,Int8x4}
+end
+function Base.convert(::Type{NTuple{8,Int32}}, a::Int4x8)
+    alo8, ahi8 = convert(NTuple{2,Int8x4}, a)
+    alo32 = convert(NTuple{4,Int32}, alo8)
+    ahi32 = convert(NTuple{4,Int32}, ahi8)
+    return (alo32[1], ahi32[1], alo32[2], ahi32[2], alo32[3], ahi32[3], alo32[4], ahi32[4])
+end
+
+Base.show(io::IO, a::Int4x8) = print(io, convert(NTuple{8,Int32}, a))
+
+Base.zero(::Type{Int4x8}) = Int4x8(Int32(0))
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x8}) = Int4x8(rand(UInt32))
+
+Base.:~(a::Int4x8) = Int4x8(~a.val)
+Base.:&(a::Int4x8, b::Int4x8) = Int4x8(a.val & b.val)
+Base.:|(a::Int4x8, b::Int4x8) = Int4x8(a.val | b.val)
+Base.xor(a::Int4x8, b::Int4x8) = Int4x8(a.val ⊻ b.val)
+
+Base.:+(a::Int4x8) = a
+function Base.:-(a::Int4x8)
+    alo = a.val & 0x0f0f0f0f
+    rlo = 0x80808080 - alo
+    ahi = a.val & 0xf0f0f0f0
+    rhi = 0x08080800 - ahi
+    return Int4x8(bitifelse(0x0f0f0f0f, rlo, rhi))
+end
+function Base.:+(a::Int4x8, b::Int4x8)
+    # TODO: Combine these via LOP3
+    a1 = a.val ⊻ 0x88888888
+    b1 = b.val ⊻ 0x88888888
+    alo = a1 & 0x0f0f0f0f
+    blo = b1 & 0x0f0f0f0f
+    rlo = alo + blo
+    ahi = a1 & 0xf0f0f0f0
+    bhi = b1 & 0xf0f0f0f0
+    rhi = ahi + bhi
+    return Int4x8(bitifelse(0x0f0f0f0f, rlo, rhi))
+end
+function Base.:-(a::Int4x8, b::Int4x8)
+    # TODO: Combine these via LOP3
+    a1 = a.val ⊻ 0x88888888
+    b1 = b.val ⊻ 0x88888888
+    alo = (a1 & 0x0f0f0f0f) ⊻ 0x10101010
+    blo = b1 & 0x0f0f0f0f
+    rlo = alo - blo
+    ahi = (a1 & 0xf0f0f0f0) ⊻ 0x01010100
+    bhi = b1 & 0xf0f0f0f0
+    rhi = ahi - bhi
+    return Int4x8(bitifelse(0x0f0f0f0f, rlo, rhi))
+end
+function Base.min(a::Int4x8, b::Int4x8)
+    as = convert(NTuple{8,Int32}, a)
+    bs = convert(NTuple{8,Int32}, b)
+    rs = min.(as, bs)
+    return Int4x8(rs...)
+end
+function Base.max(a::Int4x8, b::Int4x8)
+    as = convert(NTuple{8,Int32}, a)
+    bs = convert(NTuple{8,Int32}, b)
+    rs = max.(as, bs)
+    return Int4x8(rs...)
+end
+
+################################################################################
+
+function Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32)
+    return Int8x4(
+        (a4 % UInt8 % UInt32) << 0x18 |
+        (a3 % UInt8 % UInt32) << 0x10 |
+        (a2 % UInt8 % UInt32) << 0x08 |
+        (a1 % UInt8 % UInt32) << 0x00,
+    )
+end
+CUDA.@device_override Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32) = Int8x4(cvt_pack_s8(a2, a1, cvt_pack_s8(a4, a3)))
+
+function Base.convert(::Type{Int8x4}, a::NTuple{2,Int16x2})
+    return Int8x4(
+        (a[1].val >>> 0x00) % Int32, (a[1].val >>> 0x10) % Int32, (a[2].val >>> 0x00) % Int32, (a[2].val >>> 0x10) % Int32
+    )
+end
+CUDA.@device_override Base.convert(::Type{Int8x4}, a::NTuple{2,Int16x2}) = Int8x4(prmt(a[1].val, a[2].val, 0x6240) % UInt32)
+
+function Base.convert(::Type{NTuple{2,Int16x2}}, a::Int8x4)
+    a1 = ((a.val >>> 0x00) & 0xff) % Int8 % Int32
+    a2 = ((a.val >>> 0x08) & 0xff) % Int8 % Int32
+    a3 = ((a.val >>> 0x10) & 0xff) % Int8 % Int32
+    a4 = ((a.val >>> 0x18) & 0xff) % Int8 % Int32
+    return (Int16x2(a1, a3), Int16x2(a2, a4))::NTuple{2,Int16x2}
+end
+CUDA.@device_override function Base.convert(::Type{NTuple{2,Int16x2}}, a::Int8x4)
+    return (Int16x2(prmt(a.val, UInt32(0), 0xa280)), Int16x2(prmt(a.val, UInt32(0), 0xb391)))::NTuple{2,Int16x2}
+end
+
+Base.convert(::Type{Int8x4}, a::NTuple{4,Int32}) = Int8x4(a[1], a[2], a[3], a[4])
+CUDA.@device_override Base.convert(::Type{Int8x4}, a::NTuple{4,Int32}) = cvt_pack_s8(a[2], a[1], cvt_pack_s8(a[4], a[3]))
+
+function Base.convert(::Type{NTuple{4,Int32}}, a::Int8x4)
+    return (
+        (a.val >>> 0x00) % Int8 % Int32,
+        (a.val >>> 0x08) % Int8 % Int32,
+        (a.val >>> 0x10) % Int8 % Int32,
+        (a.val >>> 0x18) % Int8 % Int32,
+    )::NTuple{4,Int32}
+end
+CUDA.@device_override function Base.convert(::Type{NTuple{4,Int32}}, a::Int8x4)
+    return (
+        prmt(a.val, UInt32(0), 0x8880) % Int32,
+        prmt(a.val, UInt32(0), 0x9991) % Int32,
+        prmt(a.val, UInt32(0), 0xaaa2) % Int32,
+        prmt(a.val, UInt32(0), 0xbbb3) % Int32,
+    )::NTuple{4,Int32}
+end
+
+Base.show(io::IO, a::Int8x4) = print(io, convert(NTuple{4,Int32}, a))
+
+Base.zero(::Type{Int8x4}) = Int8x4(Int32(0))
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int8x4}) = Int8x4(rand(UInt32))
+
+Base.:~(a::Int8x4) = Int8x4(~a.val)
+Base.:&(a::Int8x4, b::Int8x4) = Int8x4(a.val & b.val)
+Base.:|(a::Int8x4, b::Int8x4) = Int8x4(a.val | b.val)
+Base.xor(a::Int8x4, b::Int8x4) = Int8x4(a.val ⊻ b.val)
+
+Base.:+(a::Int8x4) = a
+function Base.:-(a::Int8x4)
+    alo = a.val & 0x00ff00ff
+    rlo = 0x80008000 - alo
+    ahi = a.val & 0xff00ff00
+    rhi = 0x00800000 - ahi
+    return Int8x4(bitifelse(0x00ff00ff, rlo, rhi))
+end
+function Base.:+(a::Int8x4, b::Int8x4)
+    # TODO: Combine these via LOP3
+    a1 = a.val ⊻ 0x80808080
+    b1 = b.val ⊻ 0x80808080
+    alo = a1 & 0x00ff00ff
+    blo = b1 & 0x00ff00ff
+    rlo = alo + blo
+    ahi = a1 & 0xff00ff00
+    bhi = b1 & 0xff00ff00
+    rhi = ahi + bhi
+    return Int8x4(bitifelse(0x00ff00ff, rlo, rhi))
+end
+function Base.:-(a::Int8x4, b::Int8x4)
+    # TODO: Combine these via LOP3
+    a1 = a.val ⊻ 0x80808080
+    b1 = b.val ⊻ 0x80808080
+    alo = (a1 & 0x00ff00ff) ⊻ 0x01000100
+    blo = b1 & 0x00ff00ff
+    rlo = alo - blo
+    ahi = (a1 & 0xff00ff00) ⊻ 0x00010000
+    bhi = b1 & 0xff00ff00
+    rhi = ahi - bhi
+    return Int8x4(bitifelse(0x00ff00ff, rlo, rhi))
+end
+function Base.min(a::Int8x4, b::Int8x4)
+    as = convert(NTuple{4,Int32}, a)
+    bs = convert(NTuple{4,Int32}, b)
+    rs = min.(as, bs)
+    return Int8x4(rs...)
+end
+function Base.max(a::Int8x4, b::Int8x4)
+    as = convert(NTuple{4,Int32}, a)
+    bs = convert(NTuple{4,Int32}, b)
+    rs = max.(as, bs)
+    return Int8x4(rs...)
+end
+
+################################################################################
+
+Int16x2(a1::Int32, a2::Int32) = Int16x2(((a1 % UInt32) & 0xffff) << 0x00 | ((a2 % UInt32) & 0xffff) << 0x10)
+CUDA.@device_override Int16x2(a1::Int32, a2::Int32) = Int16x2(cvt_pack_s16(a2, a1))
+
+Base.convert(::Type{Int16x2}, a::NTuple{2,Int32}) = Int16x2(a[1], a[2])
+function Base.convert(::Type{NTuple{2,Int32}}, a::Int16x2)
+    return ((a.val >>> 0x00) % Int16 % Int32, (a.val >>> 0x10) % Int16 % Int32)::NTuple{2,Int32}
+end
+
+Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
+
+Base.zero(::Type{Int16x2}) = Int16x2(Int32(0))
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int16x2}) = Int16x2(rand(UInt32))
+
+Base.:~(a::Int16x2) = Int16x2(~a.val)
+Base.:&(a::Int16x2, b::Int16x2) = Int16x2(a.val & b.val)
+Base.:|(a::Int16x2, b::Int16x2) = Int16x2(a.val | b.val)
+Base.xor(a::Int16x2, b::Int16x2) = Int16x2(a.val ⊻ b.val)
+
+Base.:+(a::Int16x2) = a
+function Base.:-(a::Int16x2)
+    alo = a.val
+    rlo = -alo
+    ahi = a.val & 0xffff0000
+    rhi = -ahi
+    return Int16x2(bitifelse(0x0000ffff, rlo, rhi))
+end
+function Base.:+(a::Int16x2, b::Int16x2)
+    a1 = a.val ⊻ 0x80008000
+    b1 = b.val ⊻ 0x80008000
+    alo = a1
+    blo = b1
+    rlo = alo + blo
+    ahi = a1 & 0xffff0000
+    bhi = b1 & 0xffff0000
+    rhi = ahi + bhi
+    return Int16x2(bitifelse(0x0000ffff, rlo, rhi))
+end
+function Base.:-(a::Int16x2, b::Int16x2)
+    a1 = a.val ⊻ 0x80008000
+    b1 = b.val ⊻ 0x80008000
+    alo = a1
+    blo = b1
+    rlo = alo - blo
+    ahi = a1 & 0xffff0000
+    bhi = b1 & 0xffff0000
+    rhi = ahi - bhi
+    return Int16x2(bitifelse(0x0000ffff, rlo, rhi))
+end
+function Base.min(a::Int16x2, b::Int16x2)
+    as = convert(NTuple{2,Int32}, a)
+    bs = convert(NTuple{2,Int32}, b)
+    rs = min.(as, bs)
+    return Int16x2(rs...)
+end
+function Base.max(a::Int16x2, b::Int16x2)
+    as = convert(NTuple{2,Int32}, a)
+    bs = convert(NTuple{2,Int32}, b)
+    rs = max.(as, bs)
+    return Int16x2(rs...)
 end
 
 end
