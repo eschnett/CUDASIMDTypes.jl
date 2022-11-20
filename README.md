@@ -28,6 +28,11 @@ supported on CPUs, but are usually less efficient there. (This could
 be remedied by interfacing this package with
 [`SIMD.jl`](https://github.com/eschnett/SIMD.jl).
 
+This package also defines and exports a few helper functions that
+correspond to certain CUDA PTX instructions, such as `prmt` and
+`lop3`, and defines a function `bitifelse`. These are used internally
+but might also be useful in other CUDA packages.
+
 ## Examples
 
 Create two `Int8x4` numbers, add them, and convert the result into a tuple:
@@ -46,6 +51,19 @@ julia> k = i + j
 
 julia> convert(NTuple{4,Int32}, k)
 (6, 8, 10, 12)
+```
+
+Create an `Int4x8` vector, and split it into its even and odd
+components, converted into 2 `Int8x4` vectors. Note that `Int4` is a
+rather small type, so that our input `8` overflows to `-8`.
+```Julia
+julia> using CUDASIMDTypes
+
+julia> i = Int4x8(1, 2, 3, 4, 5, 6, 7, 8)
+(1, 2, 3, 4, 5, 6, 7, -8)
+
+julia> jlo, jhi = convert(NTuple{2,Int8x4}, i)
+((1, 3, 5, 7), (2, 4, 6, -8))
 ```
 
 Create `Float16x2` numbers, multiply and add them, and sum the result:
