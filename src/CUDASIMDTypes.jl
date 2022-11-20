@@ -266,6 +266,10 @@ function Int4x8(a1::Int32, a2::Int32, a3::Int32, a4::Int32, a5::Int32, a6::Int32
     return Int4x8(bitifelse(0x0f0f0f0f, Int8x4(a1, a3, a5, a7).val << 0x00, Int8x4(a2, a4, a6, a8).val << 0x04))
 end
 
+function Int4x8(a1::Integer, a2::Integer, a3::Integer, a4::Integer, a5::Integer, a6::Integer, a7::Integer, a8::Integer)
+    return Int4x8(Int32(a1), Int32(a2), Int32(a3), Int32(a4), Int32(a5), Int32(a6), Int32(a7), Int32(a8))
+end
+
 Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val, a[2].val << 0x04))
 function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     # a1 = a.val ⊻ 0x88888888            # a + 8
@@ -352,6 +356,8 @@ function Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32)
     )
 end
 CUDA.@device_override Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32) = Int8x4(cvt_pack_s8(a2, a1, cvt_pack_s8(a4, a3)))
+
+Int8x4(a1::Integer, a2::Integer, a3::Integer, a4::Integer) = Int8x4(Int32(a1), Int32(a2), Int32(a3), Int32(a4))
 
 function Base.convert(::Type{Int8x4}, a::NTuple{2,Int16x2})
     return Int8x4(
@@ -451,6 +457,8 @@ end
 Int16x2(a1::Int32, a2::Int32) = Int16x2(((a1 % UInt32) & 0xffff) << 0x00 | ((a2 % UInt32) & 0xffff) << 0x10)
 CUDA.@device_override Int16x2(a1::Int32, a2::Int32) = Int16x2(cvt_pack_s16(a2, a1))
 
+Int16x2(a1::Integer, a2::Integer) = Int16x2(Int32(a1), Int32(a2))
+
 Base.convert(::Type{Int16x2}, a::NTuple{2,Int32}) = Int16x2(a[1], a[2])
 function Base.convert(::Type{NTuple{2,Int32}}, a::Int16x2)
     return ((a.val >>> 0x00) % Int16 % Int32, (a.val >>> 0x10) % Int16 % Int32)::NTuple{2,Int32}
@@ -539,6 +547,8 @@ end
 CUDA.@device_override function Float16x2(a1::Float32, a2::Float32)
     return Float16x2(LLVM.Interop.@asmcall("cvt.rn.f16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
 end
+
+Float16x2(a1::Real, a2::Real) = Float16x2(Float32(a1), Float32(a2))
 
 function Base.convert(::Type{NTuple{2,Float32}}, a::Float16x2)
     return (Float32(reinterpret(Float16, (a.val >> 0x00) % UInt16)), Float32(reinterpret(Float16, (a.val >> 0x10) % UInt16)))
@@ -652,6 +662,8 @@ end
 CUDA.@device_override function BFloat16x2(a1::Float32, a2::Float32)
     return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
 end
+
+BFloat16x2(a1::Real, a2::Real) = BFloat16x2(Float32(a1), Float32(a2))
 
 function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat16x2)
     return (Float32(reinterpret(BFloat16, (a.val >> 0x00) % UInt16)), Float32(reinterpret(BFloat16, (a.val >> 0x10) % UInt16)))
