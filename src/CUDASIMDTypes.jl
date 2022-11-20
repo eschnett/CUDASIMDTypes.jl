@@ -545,7 +545,7 @@ function Base.convert(::Type{NTuple{2,Float32}}, a::Float16x2)
 end
 CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::Float16x2)
     return (
-        LLVM.Interop.@asmcall("cvt.f32.f16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val),
+        LLVM.Interop.@asmcall("cvt.f32.f16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val >> 0x00),
         LLVM.Interop.@asmcall("cvt.f32.f16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val >> 0x10)
     )::NTuple{2,Float32}
 end
@@ -646,35 +646,124 @@ end
 
 ################################################################################
 
-function BFloat16x2(a::Float32, b::Float32)
-    return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a, b))
+function BFloat16x2(a1::Float32, a2::Float32)
+    return BFloat16x2((reinterpret(UInt16, BFloat16(a1)) % UInt32) << 0x00 | (reinterpret(UInt16, BFloat16(a2)) % UInt32) << 0x10)
 end
+CUDA.@device_override function BFloat16x2(a1::Float32, a2::Float32)
+    return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
+end
+
 function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat16x2)
+    return (Float32(reinterpret(BFloat16, (a.val >> 0x00) % UInt16)), Float32(reinterpret(BFloat16, (a.val >> 0x10) % UInt16)))
+end
+CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat16x2)
+    # Converting from `bf16` requires a 16-bit register as input.
+    # (Converting from `f16` is more lenient, it can have a 32-bit
+    # register as input.)
     return (
-        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val),
-        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val >> 0x10)
+        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x00) % UInt16),
+        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x10) % UInt16)
     )::NTuple{2,Float32}
 end
+
+function BFloat16x2(a1::BFloat16, a2::BFloat16)
+    return BFloat16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
+end
+function Base.convert(::Type{NTuple{2,BFloat16}}, a::BFloat16x2)
+    return (reinterpret(BFloat16, (a.val >> 0x00) % UInt16), reinterpret(BFloat16, (a.val >> 0x10) % UInt16))
+end
+
 Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
+
 Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
+
 Base.:+(a::BFloat16x2) = a
-Base.:-(a::BFloat16x2) = BFloat16x2(LLVM.Interop.@asmcall("neg.bf16x2 \$0, \$1;", "=r,r", UInt32, Tuple{UInt32}, a.val))
-Base.abs(a::BFloat16x2) = BFloat16x2(LLVM.Interop.@asmcall("abs.bf16x2 \$0, \$1;", "=r,r", UInt32, Tuple{UInt32}, a.val))
+Base.:-(a::BFloat16x2) = BFloat16x2(a.val ⊻ 0x80008000)
+CUDA.@device_override function Base.:-(a::BFloat16x2)
+    return BFloat16x2(LLVM.Interop.@asmcall("neg.bf16x2 \$0, \$1;", "=r,r", UInt32, Tuple{UInt32}, a.val))
+end
+
+export negate1
+"""Negate a[1]"""
+# negate1(a::BFloat16x2) = BFloat16x2(a.val ⊻ 0x00008000)
+negate1(a::BFloat16x2) = a * BFloat16x2(-1.0f0, 1.0f0)
+
+export negate2
+"""Negate a[2]"""
+# negate2(a::BFloat16x2) = BFloat16x2(a.val ⊻ 0x80000000)
+negate2(a::BFloat16x2) = a * BFloat16x2(1.0f0, -1.0f0)
+
+Base.abs(a::BFloat16x2) = BFloat16x2(a.val & 0x7fff7fff)
+CUDA.@device_override function Base.abs(a::BFloat16x2)
+    return BFloat16x2(LLVM.Interop.@asmcall("abs.bf16x2 \$0, \$1;", "=r,r", UInt32, Tuple{UInt32}, a.val))
+end
+
 function Base.:+(a::BFloat16x2, b::BFloat16x2)
-    return BFloat16x2(LLVM.Interop.@asmcall("add.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    return BFloat16x2(alo + blo, ahi + bhi)
+end
+CUDA.@device_override function Base.:+(a::BFloat16x2, b::BFloat16x2)
+    # This requires sm_90
+    # return BFloat16x2(LLVM.Interop.@asmcall("add.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    return muladd(BFloat16x2(1.0f0, 1.0f0), a, b)
 end
 function Base.:-(a::BFloat16x2, b::BFloat16x2)
-    return BFloat16x2(LLVM.Interop.@asmcall("sub.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    return BFloat16x2(alo - blo, ahi - bhi)
+end
+CUDA.@device_override function Base.:-(a::BFloat16x2, b::BFloat16x2)
+    # This requires sm_90
+    # return BFloat16x2(LLVM.Interop.@asmcall("sub.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    return muladd(BFloat16x2(-1.0f0, -1.0f0), b, a)
 end
 function Base.:*(a::BFloat16x2, b::BFloat16x2)
-    return BFloat16x2(LLVM.Interop.@asmcall("mul.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    return BFloat16x2(alo * blo, ahi * bhi)
+end
+CUDA.@device_override function Base.:*(a::BFloat16x2, b::BFloat16x2)
+    # This requires sm_90
+    # return BFloat16x2(LLVM.Interop.@asmcall("mul.rn.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+    return muladd(a, b, BFloat16x2(-0.0f0, -0.0f0))
 end
 function Base.muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    clo, chi = convert(NTuple{2,BFloat16}, c)
+    return BFloat16x2(muladd(alo, blo, clo), muladd(ahi, bhi, chi))
+end
+CUDA.@device_override function Base.muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
     return BFloat16x2(
         LLVM.Interop.@asmcall(
             "fma.rn.bf16x2 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{UInt32,UInt32,UInt32}, a.val, b.val, c.val
         )
     )
+end
+export muladd_sat
+function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    return BFloat16x2(
+        LLVM.Interop.@asmcall(
+            "fma.rn.sat.bf16x2 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{UInt32,UInt32,UInt32}, a.val, b.val, c.val
+        )
+    )
+end
+function Base.max(a::BFloat16x2, b::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    return BFloat16x2(max(alo, blo), max(ahi, bhi))
+end
+CUDA.@device_override function Base.max(a::BFloat16x2, b::BFloat16x2)
+    return BFloat16x2(LLVM.Interop.@asmcall("max.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
+end
+function Base.min(a::BFloat16x2, b::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    return BFloat16x2(min(alo, blo), min(ahi, bhi))
+end
+CUDA.@device_override function Base.min(a::BFloat16x2, b::BFloat16x2)
+    return BFloat16x2(LLVM.Interop.@asmcall("min.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
 
 end
