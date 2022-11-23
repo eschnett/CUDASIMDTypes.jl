@@ -224,7 +224,8 @@ Base.show(io::IO, a::Int4x2) = print(io, convert(NTuple{2,Int32}, a))
 Base.length(::Int4x2) = 1
 
 Base.zero(::Type{Int4x2}) = Int4x2(Int8(0))
-Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x2}) = Int4x2(rand(UInt8))
+Base.zero(::Int4x2) = zero(Int4x2)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x2}) = Int4x2(rand(rng, UInt8))
 
 Base.:~(a::Int4x2) = Int4x2(~a.val)
 Base.:&(a::Int4x2, b::Int4x2) = Int4x2(a.val & b.val)
@@ -270,7 +271,7 @@ function Int4x8(a1::Integer, a2::Integer, a3::Integer, a4::Integer, a5::Integer,
     return Int4x8(Int32(a1), Int32(a2), Int32(a3), Int32(a4), Int32(a5), Int32(a6), Int32(a7), Int32(a8))
 end
 
-Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val, a[2].val << 0x04))
+Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     # a1 = a.val ⊻ 0x88888888            # a + 8
     # a2_lo = a1 & 0x0f0f0f0f            # extract low part
@@ -293,7 +294,8 @@ end
 Base.show(io::IO, a::Int4x8) = print(io, convert(NTuple{8,Int32}, a))
 
 Base.zero(::Type{Int4x8}) = Int4x8(Int32(0))
-Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x8}) = Int4x8(rand(UInt32))
+Base.zero(::Int4x8) = zero(Int4x8)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x8}) = Int4x8(rand(rng, UInt32))
 
 Base.:~(a::Int4x8) = Int4x8(~a.val)
 Base.:&(a::Int4x8, b::Int4x8) = Int4x8(a.val & b.val)
@@ -400,7 +402,8 @@ end
 Base.show(io::IO, a::Int8x4) = print(io, convert(NTuple{4,Int32}, a))
 
 Base.zero(::Type{Int8x4}) = Int8x4(Int32(0))
-Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int8x4}) = Int8x4(rand(UInt32))
+Base.zero(::Int8x4) = zero(Int8x4)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int8x4}) = Int8x4(rand(rng, UInt32))
 
 Base.:~(a::Int8x4) = Int8x4(~a.val)
 Base.:&(a::Int8x4, b::Int8x4) = Int8x4(a.val & b.val)
@@ -467,7 +470,8 @@ end
 Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
 
 Base.zero(::Type{Int16x2}) = Int16x2(Int32(0))
-Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int16x2}) = Int16x2(rand(UInt32))
+Base.zero(::Int16x2) = zero(Int16x2)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int16x2}) = Int16x2(rand(rng, UInt32))
 
 Base.:~(a::Int16x2) = Int16x2(~a.val)
 Base.:&(a::Int16x2, b::Int16x2) = Int16x2(a.val & b.val)
@@ -570,6 +574,8 @@ end
 Base.show(io::IO, a::Float16x2) = print(io, convert(NTuple{2,Float32}, a))
 
 Base.zero(::Type{Float16x2}) = Float16x2(0.0f0, 0.0f0)
+Base.zero(::Float16x2) = zero(Float16x2)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Float16x2}) = Float16x2(rand(rng, Float32), rand(rng, Float32))
 
 Base.:+(a::Float16x2) = a
 Base.:-(a::Float16x2) = Float16x2(a.val ⊻ 0x80008000)
@@ -688,6 +694,8 @@ end
 Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
 
 Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
+Base.zero(::BFloat16x2) = zero(BFloat16x2)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{BFloat16x2}) = BFloat16x2(rand(rng, Float32), rand(rng, Float32))
 
 Base.:+(a::BFloat16x2) = a
 Base.:-(a::BFloat16x2) = BFloat16x2(a.val ⊻ 0x80008000)
