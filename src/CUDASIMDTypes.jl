@@ -225,6 +225,7 @@ Base.length(::Int4x2) = 1
 
 Base.zero(::Type{Int4x2}) = Int4x2(Int8(0))
 Base.zero(::Int4x2) = zero(Int4x2)
+Base.iszero(a::Int4x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x2}) = Int4x2(rand(rng, UInt8))
 
 Base.:~(a::Int4x2) = Int4x2(~a.val)
@@ -295,6 +296,7 @@ Base.show(io::IO, a::Int4x8) = print(io, convert(NTuple{8,Int32}, a))
 
 Base.zero(::Type{Int4x8}) = Int4x8(Int32(0))
 Base.zero(::Int4x8) = zero(Int4x8)
+Base.iszero(a::Int4x8) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x8}) = Int4x8(rand(rng, UInt32))
 
 Base.:~(a::Int4x8) = Int4x8(~a.val)
@@ -403,6 +405,7 @@ Base.show(io::IO, a::Int8x4) = print(io, convert(NTuple{4,Int32}, a))
 
 Base.zero(::Type{Int8x4}) = Int8x4(Int32(0))
 Base.zero(::Int8x4) = zero(Int8x4)
+Base.iszero(a::Int8x4) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int8x4}) = Int8x4(rand(rng, UInt32))
 
 Base.:~(a::Int8x4) = Int8x4(~a.val)
@@ -471,6 +474,7 @@ Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
 
 Base.zero(::Type{Int16x2}) = Int16x2(Int32(0))
 Base.zero(::Int16x2) = zero(Int16x2)
+Base.iszero(a::Int16x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int16x2}) = Int16x2(rand(rng, UInt32))
 
 Base.:~(a::Int16x2) = Int16x2(~a.val)
@@ -575,6 +579,7 @@ Base.show(io::IO, a::Float16x2) = print(io, convert(NTuple{2,Float32}, a))
 
 Base.zero(::Type{Float16x2}) = Float16x2(0.0f0, 0.0f0)
 Base.zero(::Float16x2) = zero(Float16x2)
+Base.iszero(a::Float16x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Float16x2}) = Float16x2(rand(rng, Float32), rand(rng, Float32))
 
 Base.:+(a::Float16x2) = a
@@ -695,6 +700,7 @@ Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
 
 Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
 Base.zero(::BFloat16x2) = zero(BFloat16x2)
+Base.iszero(a::BFloat16x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{BFloat16x2}) = BFloat16x2(rand(rng, Float32), rand(rng, Float32))
 
 Base.:+(a::BFloat16x2) = a

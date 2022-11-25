@@ -147,6 +147,8 @@ end
     compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, zero(Int4x2)), (xlo, xhi, ylo, yhi, x, y) -> (0, 0))
     compare((xlo, xhi, ylo, yhi, x, y) -> zero(Int4x2), (xlo, xhi, ylo, yhi, x, y) -> zero(x))
 
+    @test iszero(zero(Int4x2)) isa Bool
+    @test iszero(zero(Int4x2))
     @test rand(Int4x2) isa Int4x2
 
     # logical not
@@ -253,6 +255,8 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, 0))
     compare((n, xs, ys, x, y) -> zero(Int4x8), (n, xs, ys, x, y) -> zero(x))
 
+    @test iszero(zero(Int4x8)) isa Bool
+    @test iszero(zero(Int4x8))
     @test rand(Int4x8) isa Int4x8
 
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
@@ -320,6 +324,8 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, zero(Int8x4)), (n, xs, ys, x, y) -> (0, 0, 0, 0))
     compare((n, xs, ys, x, y) -> zero(Int8x4), (n, xs, ys, x, y) -> zero(x))
 
+    @test iszero(zero(Int8x4)) isa Bool
+    @test iszero(zero(Int8x4))
     @test rand(Int8x4) isa Int8x4
 
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
@@ -384,6 +390,8 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, zero(Int16x2)), (n, xs, ys, x, y) -> (0, 0))
     compare((n, xs, ys, x, y) -> zero(Int16x2), (n, xs, ys, x, y) -> zero(x))
 
+    @test iszero(zero(Int16x2)) isa Bool
+    @test iszero(zero(Int16x2))
     @test rand(Int16x2) isa Int16x2
 
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
@@ -470,6 +478,8 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, zero(Float16x2)), (n, xs, ys, zs, x, y, z) -> (0, 0))
     compare((n, xs, ys, zs, x, y, z) -> zero(Float16x2), (n, xs, ys, zs, x, y, z) -> zero(x))
 
+    @test iszero(zero(Float16x2)) isa Bool
+    @test iszero(zero(Float16x2))
     @test rand(Float16x2) isa Float16x2
 
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, abs(x)), (n, xs, ys, zs, x, y, z) -> abs.(xs))
@@ -555,6 +565,8 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, zero(BFloat16x2)), (n, xs, ys, zs, x, y, z) -> (0, 0))
     compare((n, xs, ys, zs, x, y, z) -> zero(BFloat16x2), (n, xs, ys, zs, x, y, z) -> zero(x))
 
+    @test iszero(zero(BFloat16x2)) isa Bool
+    @test iszero(zero(BFloat16x2))
     @test rand(BFloat16x2) isa BFloat16x2
 
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, abs(x)), (n, xs, ys, zs, x, y, z) -> abs.(xs))
