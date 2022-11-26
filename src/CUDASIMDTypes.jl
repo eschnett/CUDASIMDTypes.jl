@@ -198,6 +198,8 @@ end
 
 Int4x2(a1::Int32, a2::Int32) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
 
+Int4x2(a1::Integer, a2::Integer) = Int4x2(Int32(a), Int32(b))
+
 const xor_and_lut = make_lop3_lut((a, b, c) -> (a ⊻ b) & c)
 Base.convert(::Type{Int4x2}, a::NTuple{2,Int8}) = Int4x2(a[1], a[2])
 function Base.convert(::Type{NTuple{2,Int8}}, a::Int4x2)
