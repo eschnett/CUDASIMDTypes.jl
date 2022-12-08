@@ -196,12 +196,12 @@ end
 
 ################################################################################
 
-Int4x2(a1::Int32, a2::Int32) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
-
-Int4x2(a1::Integer, a2::Integer) = Int4x2(Int32(a), Int32(b))
+Int4x2(a1::Int8, a2::Int8) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
+Int4x2(a1::Integer, a2::Integer) = Int4x2(a1 % Int8, a2 % Int8)
+Int4x2(a::NTuple{2,<:Integer}) = Int4x2(a...)
+Int4x2(a::Int16x2) = Int4x2(convert(NTuple{2,Int16}, a))
 
 const xor_and_lut = make_lop3_lut((a, b, c) -> (a ⊻ b) & c)
-Base.convert(::Type{Int4x2}, a::NTuple{2,Int8}) = Int4x2(a[1], a[2])
 function Base.convert(::Type{NTuple{2,Int8}}, a::Int4x2)
     # a1 = a.val ⊻ 0x88                  # a + 8
     # a2_lo = a1 & 0x0f                  # extract low part
@@ -214,11 +214,11 @@ function Base.convert(::Type{NTuple{2,Int8}}, a::Int4x2)
     a4_hi = a3_hi ⊻ 0x80               # a
     return (a4_lo % Int8, a4_hi % Int8)::NTuple{2,Int8}
 end
-function Base.convert(::Type{NTuple{2,Int32}}, a::Int4x2)
+function Base.convert(::Type{NTuple{2,I}}, a::Int4x2) where {I<:Integer}
     alo8, ahi8 = convert(NTuple{2,Int8}, a)
-    alo32 = convert(Int32, alo8)
-    ahi32 = convert(Int32, ahi8)
-    return (alo32, ahi32)
+    alo = convert(I, alo8)
+    ahi = convert(I, ahi8)
+    return (alo, ahi)
 end
 
 Base.show(io::IO, a::Int4x2) = print(io, convert(NTuple{2,Int32}, a))
@@ -266,15 +266,16 @@ end
 
 ################################################################################
 
-function Int4x8(a1::Int32, a2::Int32, a3::Int32, a4::Int32, a5::Int32, a6::Int32, a7::Int32, a8::Int32)
-    return Int4x8(bitifelse(0x0f0f0f0f, Int8x4(a1, a3, a5, a7).val << 0x00, Int8x4(a2, a4, a6, a8).val << 0x04))
+function Int4x8(a1::Int8, a2::Int8, a3::Int8, a4::Int8, a5::Int8, a6::Int8, a7::Int8, a8::Int8)
+    return Int4x8((Int8x4(a1, a3, a5, a7), Int8x4(a2, a4, a6, a8)))
 end
-
 function Int4x8(a1::Integer, a2::Integer, a3::Integer, a4::Integer, a5::Integer, a6::Integer, a7::Integer, a8::Integer)
-    return Int4x8(Int32(a1), Int32(a2), Int32(a3), Int32(a4), Int32(a5), Int32(a6), Int32(a7), Int32(a8))
+    return Int4x8(a1 % Int8, a2 % Int8, a3 % Int8, a4 % Int8, a5 % Int8, a6 % Int8, a7 % Int8, a8 % Int8)
 end
+Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
+Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
+Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
-Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     # a1 = a.val ⊻ 0x88888888            # a + 8
     # a2_lo = a1 & 0x0f0f0f0f            # extract low part
@@ -287,11 +288,17 @@ function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     a4_hi = a3_hi ⊻ 0x80808080         # a
     return (Int8x4(a4_lo), Int8x4(a4_hi))::NTuple{2,Int8x4}
 end
-function Base.convert(::Type{NTuple{8,Int32}}, a::Int4x8)
+function Base.convert(::Type{NTuple{4,Int16x2}}, a::Int4x8)
+    alo, ahi = convert(NTuple{2,Int8x4}, a)
+    alolo, alohi = convert(NTuple{2,Int16x2}, alo)
+    ahilo, ahihi = convert(NTuple{2,Int16x2}, ahi)
+    return (alolo, ahilo, alohi, ahihi)::NTuple{4,Int16x2}
+end
+function Base.convert(::Type{NTuple{8,I}}, a::Int4x8) where {I<:Integer}
     alo8, ahi8 = convert(NTuple{2,Int8x4}, a)
-    alo32 = convert(NTuple{4,Int32}, alo8)
-    ahi32 = convert(NTuple{4,Int32}, ahi8)
-    return (alo32[1], ahi32[1], alo32[2], ahi32[2], alo32[3], ahi32[3], alo32[4], ahi32[4])
+    alo = convert(NTuple{4,I}, alo8)
+    ahi = convert(NTuple{4,I}, ahi8)
+    return (alo[1], ahi[1], alo[2], ahi[2], alo[3], ahi[3], alo[4], ahi[4])
 end
 
 Base.show(io::IO, a::Int4x8) = print(io, convert(NTuple{8,Int32}, a))
@@ -353,7 +360,7 @@ end
 
 ################################################################################
 
-function Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32)
+function Int8x4(a1::Int8, a2::Int8, a3::Int8, a4::Int8)
     return Int8x4(
         (a4 % UInt8 % UInt32) << 0x18 |
         (a3 % UInt8 % UInt32) << 0x10 |
@@ -361,16 +368,13 @@ function Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32)
         (a1 % UInt8 % UInt32) << 0x00,
     )
 end
+CUDA.@device_override Int8x4(a1::Int8, a2::Int8, a3::Int8, a4::Int8) = Int8x4(a1 % Int32, a2 % Int32, a3 % Int32, a4 % Int32)
+Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32) = Int8x4(a1 % Int8, a2 % Int8, a3 % Int8, a4 % Int8)
 CUDA.@device_override Int8x4(a1::Int32, a2::Int32, a3::Int32, a4::Int32) = Int8x4(cvt_pack_s8(a2, a1, cvt_pack_s8(a4, a3)))
-
-Int8x4(a1::Integer, a2::Integer, a3::Integer, a4::Integer) = Int8x4(Int32(a1), Int32(a2), Int32(a3), Int32(a4))
-
-function Base.convert(::Type{Int8x4}, a::NTuple{2,Int16x2})
-    return Int8x4(
-        (a[1].val >>> 0x00) % Int32, (a[1].val >>> 0x10) % Int32, (a[2].val >>> 0x00) % Int32, (a[2].val >>> 0x10) % Int32
-    )
-end
-CUDA.@device_override Base.convert(::Type{Int8x4}, a::NTuple{2,Int16x2}) = Int8x4(prmt(a[1].val, a[2].val, 0x6240) % UInt32)
+Int8x4(a1::Integer, a2::Integer, a3::Integer, a4::Integer) = Int8x4(a1 % Int32, a2 % Int32, a3 % Int32, a4 % Int32)
+Int8x4(a::NTuple{4,<:Integer}) = Int8x4(a...)
+Int8x4(a::NTuple{2,Int16x2}) = Int8x4(a[1].val >>> 0x00, a[2].val >>> 0x00, a[1].val >>> 0x10, a[2].val >>> 0x10)
+CUDA.@device_override Int8x4(a::NTuple{2,Int16x2}) = Int8x4(prmt(a[1].val, a[2].val, 0x6240) % UInt32)
 
 function Base.convert(::Type{NTuple{2,Int16x2}}, a::Int8x4)
     a1 = ((a.val >>> 0x00) & 0xff) % Int8 % Int32
@@ -382,10 +386,6 @@ end
 CUDA.@device_override function Base.convert(::Type{NTuple{2,Int16x2}}, a::Int8x4)
     return (Int16x2(prmt(a.val, UInt32(0), 0xa280)), Int16x2(prmt(a.val, UInt32(0), 0xb391)))::NTuple{2,Int16x2}
 end
-
-Base.convert(::Type{Int8x4}, a::NTuple{4,Int32}) = Int8x4(a[1], a[2], a[3], a[4])
-CUDA.@device_override Base.convert(::Type{Int8x4}, a::NTuple{4,Int32}) = cvt_pack_s8(a[2], a[1], cvt_pack_s8(a[4], a[3]))
-
 function Base.convert(::Type{NTuple{4,Int32}}, a::Int8x4)
     return (
         (a.val >>> 0x00) % Int8 % Int32,
@@ -402,6 +402,7 @@ CUDA.@device_override function Base.convert(::Type{NTuple{4,Int32}}, a::Int8x4)
         prmt(a.val, UInt32(0), 0xbbb3) % Int32,
     )::NTuple{4,Int32}
 end
+Base.convert(::Type{NTuple{4,I}}, a::Int8x4) where {I<:Integer} = convert(NTuple{4,I}, convert(NTuple{4,Int32}, a))
 
 Base.show(io::IO, a::Int8x4) = print(io, convert(NTuple{4,Int32}, a))
 
@@ -462,15 +463,21 @@ end
 
 ################################################################################
 
-Int16x2(a1::Int32, a2::Int32) = Int16x2(((a1 % UInt32) & 0xffff) << 0x00 | ((a2 % UInt32) & 0xffff) << 0x10)
+Int16x2(a1::Int16, a2::Int16) = Int16x2((a1 % UInt16 % UInt32) << 0x00 | (a2 % UInt16 % UInt32) << 0x10)
+CUDA.@device_override Int16x2(a1::Int16, a2::Int16) = Int16x2(prmt(a1 % UInt16 % UInt32, a2 % UInt16 % UInt32, 0x5410))
+Int16x2(a1::Int32, a2::Int32) = Int16x2(a1 % Int16, a2 % Int16)
 CUDA.@device_override Int16x2(a1::Int32, a2::Int32) = Int16x2(cvt_pack_s16(a2, a1))
+Int16x2(a1::Integer, a2::Integer) = Int16x2(a1 % Int16, a2 % Int16)
+Int16x2(a::NTuple{2,<:Integer}) = Int16x2(a...)
+Int16x2(a::Int4x2) = Int16x2(convert(NTuple{2,Int8}, a))
 
-Int16x2(a1::Integer, a2::Integer) = Int16x2(Int32(a1), Int32(a2))
-
-Base.convert(::Type{Int16x2}, a::NTuple{2,Int32}) = Int16x2(a[1], a[2])
+Base.convert(::Type{NTuple{2,Int16}}, a::Int16x2) = ((a.val >>> 0x00) % Int16, (a.val >>> 0x10) % Int16)::NTuple{2,Int16}
 function Base.convert(::Type{NTuple{2,Int32}}, a::Int16x2)
     return ((a.val >>> 0x00) % Int16 % Int32, (a.val >>> 0x10) % Int16 % Int32)::NTuple{2,Int32}
 end
+
+Int16x2(a1::Integer, a2::Integer) = Int16x2(Int16(a1), Int16(a2))
+Base.convert(::Type{NTuple{2,I}}, a::Int16x2) where {I<:Integer} = convert(NTuple{2,I}, convert(NTuple{2,Int16}, a))
 
 Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
 
@@ -551,15 +558,24 @@ end
 
 ################################################################################
 
+function Float16x2(a1::Float16, a2::Float16)
+    return Float16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
+end
+CUDA.@device_override function Float16x2(a1::Float16, a2::Float16)
+    return Float16x2(prmt(reinterpret(UInt16, a1) % UInt32, reinterpret(UInt16, a2) % UInt32, 0x5410))
+end
 function Float16x2(a1::Float32, a2::Float32)
     return Float16x2((reinterpret(UInt16, Float16(a1)) % UInt32) << 0x00 | (reinterpret(UInt16, Float16(a2)) % UInt32) << 0x10)
 end
 CUDA.@device_override function Float16x2(a1::Float32, a2::Float32)
     return Float16x2(LLVM.Interop.@asmcall("cvt.rn.f16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
 end
+Float16x2(a1::Real, a2::Real) = Float16x2(Float16(a1), Float16(a2))
+Float16x2(a::NTuple{2,<:Real}) = Float16x2(a...)
 
-Float16x2(a1::Real, a2::Real) = Float16x2(Float32(a1), Float32(a2))
-
+function Base.convert(::Type{NTuple{2,Float16}}, a::Float16x2)
+    return (reinterpret(Float16, (a.val >> 0x00) % UInt16), reinterpret(Float16, (a.val >> 0x10) % UInt16))
+end
 function Base.convert(::Type{NTuple{2,Float32}}, a::Float16x2)
     return (Float32(reinterpret(Float16, (a.val >> 0x00) % UInt16)), Float32(reinterpret(Float16, (a.val >> 0x10) % UInt16)))
 end
@@ -568,13 +584,6 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::Float1
         LLVM.Interop.@asmcall("cvt.f32.f16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val >> 0x00),
         LLVM.Interop.@asmcall("cvt.f32.f16 \$0, \$1;", "=r,r", Float32, Tuple{UInt32}, a.val >> 0x10)
     )::NTuple{2,Float32}
-end
-
-function Float16x2(a1::Float16, a2::Float16)
-    return Float16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
-end
-function Base.convert(::Type{NTuple{2,Float16}}, a::Float16x2)
-    return (reinterpret(Float16, (a.val >> 0x00) % UInt16), reinterpret(Float16, (a.val >> 0x10) % UInt16))
 end
 
 Base.show(io::IO, a::Float16x2) = print(io, convert(NTuple{2,Float32}, a))
@@ -669,15 +678,24 @@ end
 
 ################################################################################
 
+function BFloat16x2(a1::BFloat16, a2::BFloat16)
+    return BFloat16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
+end
+CUDA.@device_override function BFloat16x2(a1::Float16, a2::Float16)
+    return BFloat16x2(prmt(reinterpret(UInt16, a1) % UInt32, reinterpret(UInt16, a2) % UInt32, 0x5410))
+end
 function BFloat16x2(a1::Float32, a2::Float32)
     return BFloat16x2((reinterpret(UInt16, BFloat16(a1)) % UInt32) << 0x00 | (reinterpret(UInt16, BFloat16(a2)) % UInt32) << 0x10)
 end
 CUDA.@device_override function BFloat16x2(a1::Float32, a2::Float32)
     return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
 end
+BFloat16x2(a1::Real, a2::Real) = BFloat16x2(BFloat16(a1), BFloat16(a2))
+BFloat16x2(a::NTuple{2,<:Real}) = BFloat16x2(a...)
 
-BFloat16x2(a1::Real, a2::Real) = BFloat16x2(Float32(a1), Float32(a2))
-
+function Base.convert(::Type{NTuple{2,BFloat16}}, a::BFloat16x2)
+    return (reinterpret(BFloat16, (a.val >> 0x00) % UInt16), reinterpret(BFloat16, (a.val >> 0x10) % UInt16))
+end
 function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat16x2)
     return (Float32(reinterpret(BFloat16, (a.val >> 0x00) % UInt16)), Float32(reinterpret(BFloat16, (a.val >> 0x10) % UInt16)))
 end
@@ -689,13 +707,6 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat
         LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x00) % UInt16),
         LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x10) % UInt16)
     )::NTuple{2,Float32}
-end
-
-function BFloat16x2(a1::BFloat16, a2::BFloat16)
-    return BFloat16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
-end
-function Base.convert(::Type{NTuple{2,BFloat16}}, a::BFloat16x2)
-    return (reinterpret(BFloat16, (a.val >> 0x00) % UInt16), reinterpret(BFloat16, (a.val >> 0x10) % UInt16))
 end
 
 Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
@@ -793,5 +804,76 @@ end
 CUDA.@device_override function Base.min(a::BFloat16x2, b::BFloat16x2)
     return BFloat16x2(LLVM.Interop.@asmcall("min.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
+
+################################################################################
+
+const Types8bit = Int4x2
+const Types32bit = Union{Int4x8,Int8x4,Int16x2,Float16x2,BFloat16x2}
+
+Base.reinterpret(::Type{I}, a::Int4x2) where {I<:Union{Int8,UInt8}} = reinterpret(I, a.val)
+Base.reinterpret(::Type{Int4x2}, a::Union{Int8,UInt8}) = Int4x2(reinterpret(UInt8, a))
+Base.reinterpret(::Type{T}, a::Int4x2) where {T<:Types8bit} = T(a.val)
+
+Base.reinterpret(::Type{I}, a::Types32bit) where {I<:Union{Int32,UInt32}} = reinterpret(I, a.val)
+Base.reinterpret(::Type{T}, a::Union{Int32,UInt32}) where {T<:Types32bit} = T(reinterpret(a, UInt32))
+Base.reinterpret(::Type{T}, a::Types32bit) where {T<:Types32bit} = T(a.val)
+
+################################################################################
+
+Float16x2(a::Int16x2) = Float16x2(Float16.(convert(NTuple{2,Int16}, a)))
+
+Int16x2(a::Float16x2) = Int16x2(round.(Int16, convert(NTuple{2,Float16}, a)))
+
+function Float16(a::Int8)
+    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+    offset = Float16(1536)
+    b = reinterpret(Float16, reinterpret(UInt16, offset) + Int16(a)) - offset
+    return b
+end
+CUDA.@device_override function Float16(a::Int8)
+    # TODO: Turn this into a `lop3`
+    # Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
+    offset = Float16(1024)
+    b = reinterpret(Float16, reinterpret(UInt16, offset) | ((a % UInt8) ⊻ 0x80)) - (offset + 0x80)
+    return b
+end
+
+function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
+    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+    offset = Float16x2(1536, 1536)
+    alo, ahi = convert(NTuple{2,Int16x2}, a)
+    blo = reinterpret(Float16x2, reinterpret(Int16x2, offset) + alo) - offset
+    bhi = reinterpret(Float16x2, reinterpret(Int16x2, offset) + ahi) - offset
+    return (blo, bhi)
+end
+CUDA.@device_override function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
+    # TODO: Turn this into a `lop3`
+    # Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
+    offset = Float16x2(1024, 1024)
+    alo, ahi = convert(NTuple{2,Int16x2}, a)
+    blo = reinterpret(Float16x2, reinterpret(Int16x2, offset) | (alo.val ⊻ 0x00800080)) - (offset + Float16x2(0x80, 0x80))
+    bhi = reinterpret(Float16x2, reinterpret(Int16x2, offset) | (ahi.val ⊻ 0x00800080)) - (offset + Float16x2(0x80, 0x80))
+    return (blo, bhi)
+end
+
+Float16x2(a::Int4x2) = Float16x2(Int16x2(a))
+
+# TODO: This is a single `lop3` in CUDA
+function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+    offset = Float16x2(1536, 1536)
+    a1, a2, a3, a4 = convert(NTuple{4,Int16x2}, a)
+    b1 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a1) - offset
+    b2 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a2) - offset
+    b3 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a3) - offset
+    b4 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a4) - offset
+    return (b1, b2, b3, b4)
+end
+
+################################################################################
+
+BFloat16x2(a::Int16x2) = BFloat16x2(BFloat16.(convert(NTuple{2,Int16}, a)))
+
+Int16x2(a::BFloat16x2) = Int16x2(round.(Int16, Float32.(convert(NTuple{2,BFloat16}, a))))
 
 end

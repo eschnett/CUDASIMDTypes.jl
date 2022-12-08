@@ -6,6 +6,11 @@ using Test
 
 ################################################################################
 
+const CR = "\r"
+const ESC = "\e"
+const CSI = "$(ESC)["
+const EL = "$(CSI)K"
+
 make_int4(x::Integer) = ((x + 8) & 0xf - 8) % Int8
 
 ################################################################################
@@ -130,11 +135,40 @@ end
             @test rcudal == rcpul
             @test rcudar == rcpur
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
     # Test constructors
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int8(xlo), Int8(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int16(xlo), Int16(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int32(xlo), Int32(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int64(xlo), Int64(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
     compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int8}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int16}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int64}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int16x2(x), (xlo, xhi, ylo, yhi, x, y) -> Int16x2(xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16x2(xlo, xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
 
     # Test output
     @test string.(x) == string.(tuple.(xlo, xhi))
@@ -180,6 +214,9 @@ end
         (xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, max(x, y)),
         (xlo, xhi, ylo, yhi, x, y) -> make_int4.((max(xlo, ylo), max(xhi, yhi))),
     )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
@@ -217,12 +254,41 @@ Random.seed!(0)
             @test rcudal == rcpul
             @test rcudar == rcpur
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
+    compare((n, xs, ys, x, y) -> Int4x8(xs), (n, xs, ys, x, y) -> x)
+    compare(
+        (n, xs, ys, x, y) -> Int4x8((Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8]))),
+        (n, xs, ys, x, y) -> x,
+    )
+    compare(
+        (n, xs, ys, x, y) -> Int4x8((Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
+        (n, xs, ys, x, y) -> x,
+    )
+
+    compare((n, xs, ys, x, y) -> Int4x8(Int8.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int16.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int32.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int64.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int8.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int16.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int32.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int4x8(Int64.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int8}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int16}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int64}, x), (n, xs, ys, x, y) -> xs)
+
     compare(
         (n, xs, ys, x, y) -> convert(NTuple{2,Int8x4}, x),
         (n, xs, ys, x, y) -> (Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8])),
+    )
+    compare(
+        (n, xs, ys, x, y) -> convert(NTuple{4,Int16x2}, x),
+        (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8])),
     )
 
     @test string.(x) == string.(xs)
@@ -253,6 +319,7 @@ Random.seed!(0)
     )
 
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, 0))
+    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, 0))
     compare((n, xs, ys, x, y) -> zero(Int4x8), (n, xs, ys, x, y) -> zero(x))
 
     @test iszero(zero(Int4x8)) isa Bool
@@ -272,6 +339,9 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x - y), (n, xs, ys, x, y) -> make_int4.(xs .- ys))
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, min(x, y)), (n, xs, ys, x, y) -> make_int4.(min.(xs, ys)))
     compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, max(x, y)), (n, xs, ys, x, y) -> make_int4.(max.(xs, ys)))
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
@@ -309,9 +379,25 @@ Random.seed!(0)
             @test rcudal == rcpul
             @test rcudar == rcpur
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
+    compare((n, xs, ys, x, y) -> Int8x4(xs), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4((Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4]))), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int8.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int16.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int32.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int64.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int8.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int16.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int32.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int8x4(Int64.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int8}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int16}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int64}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int16x2}, x), (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4])))
 
     @test string.(x) == string.(xs)
@@ -341,6 +427,9 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x - y), (n, xs, ys, x, y) -> (xs .- ys) .% Int8)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, min(x, y)), (n, xs, ys, x, y) -> min.(xs, ys) .% Int8)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, max(x, y)), (n, xs, ys, x, y) -> max.(xs, ys) .% Int8)
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
@@ -378,9 +467,22 @@ Random.seed!(0)
             @test rcudal == rcpul
             @test rcudar == rcpur
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
+    compare((n, xs, ys, x, y) -> Int16x2(xs), (n, xs, ys, x, y) -> x)
+
+    compare((n, xs, ys, x, y) -> Int16x2(Int16.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int16x2(Int32.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int16x2(Int64.(xs)...), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int16x2(Int16.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int16x2(Int32.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> Int16x2(Int64.(xs)), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int16}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int64}, x), (n, xs, ys, x, y) -> xs)
 
     @test string.(x) == string.(xs)
 
@@ -407,6 +509,9 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x - y), (n, xs, ys, x, y) -> (xs .- ys) .% Int16)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, min(x, y)), (n, xs, ys, x, y) -> min.(xs, ys) .% Int16)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, max(x, y)), (n, xs, ys, x, y) -> max.(xs, ys) .% Int16)
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
@@ -460,8 +565,16 @@ Random.seed!(0)
                 @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
             end
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
+    compare((n, xs, ys, zs, x, y, z) -> Float16x2(Float16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Float16x2(Float32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Float16x2(Float16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Float16x2(Float32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float16}, x), (n, xs, ys, zs, x, y, z) -> xs)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
     @test string.(x) == string.(xs)
@@ -494,6 +607,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> muladd.(xs, ys, zs);
         atol=2 * eps(Float16),
     )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
@@ -547,8 +663,16 @@ Random.seed!(0)
                 @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
             end
         end
+        print(".")
+        flush(stdout)
+        return nothing
     end
 
+    compare((n, xs, ys, zs, x, y, z) -> BFloat16x2(BFloat16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> BFloat16x2(Float32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> BFloat16x2(BFloat16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> BFloat16x2(Float32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,BFloat16}, x), (n, xs, ys, zs, x, y, z) -> xs)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
     @test string.(x) == string.(xs)
@@ -581,4 +705,67 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> muladd.(xs, ys, zs);
         atol=2 * eps(BFloat16),
     )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
+end
+
+@testset "Convert Int16 to Float16" begin
+    for i in -2048:+2048
+        @test Float16(Int16(i)) == i
+        @test round(Int16, Float16(i)) == i
+    end
+
+    for i1 in -2048:+2048, i2 in -2048:+2048
+        @test Float16x2(Int16x2(i1, i2)) == Float16x2(i1, i2)
+        @test Int16x2(Float16x2(i1, i2)) == Int16x2(i1, i2)
+    end
+end
+
+@testset "Convert Int16 to BFloat16" begin
+    for i in -256:+256
+        @test BFloat16(Int16(i)) == i
+        @test round(Int16, Float32(BFloat16(i))) == i
+    end
+
+    for i1 in -256:+256, i2 in -256:+256
+        @test BFloat16x2(Int16x2(i1, i2)) == BFloat16x2(i1, i2)
+        @test Int16x2(BFloat16x2(i1, i2)) == Int16x2(i1, i2)
+    end
+end
+
+Random.seed!(0)
+@testset "Convert Int8 to Float16" begin
+    for i in -128:+127
+        @test Float16(Int8(i)) == i
+        @test round(Int8, Float16(i)) == i
+    end
+
+    for iter in 1:16777216
+        i1 = rand(Int8)
+        i2 = rand(Int8)
+        i3 = rand(Int8)
+        i4 = rand(Int8)
+        @test convert(NTuple{2,Float16x2}, Int8x4(i1, i2, i3, i4)) == (Float16x2(i1, i3), Float16x2(i2, i4))
+    end
+end
+
+Random.seed!(0)
+@testset "Convert Int4 to Float16" begin
+    for i1 in -8:+7, i2 in -8:+7
+        @test Float16x2(Int4x2(i1, i2)) == Float16x2(i1, i2)
+    end
+
+    for iter in 1:16777216
+        i1 = rand(-8:+7)
+        i2 = rand(-8:+7)
+        i3 = rand(-8:+7)
+        i4 = rand(-8:+7)
+        i5 = rand(-8:+7)
+        i6 = rand(-8:+7)
+        i7 = rand(-8:+7)
+        i8 = rand(-8:+7)
+        @test convert(NTuple{4,Float16x2}, Int4x8(i1, i2, i3, i4, i5, i6, i7, i8)) ==
+            (Float16x2(i1, i5), Float16x2(i2, i6), Float16x2(i3, i7), Float16x2(i4, i8))
+    end
 end
