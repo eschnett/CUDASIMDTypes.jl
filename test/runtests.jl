@@ -711,61 +711,223 @@ Random.seed!(0)
 end
 
 @testset "Convert Int16 to Float16" begin
-    for i in -2048:+2048
-        @test Float16(Int16(i)) == i
-        @test round(Int16, Float16(i)) == i
-    end
+    xs = NTuple{2,Int16}[]
+    x = Int16x2[]
 
     for i1 in -2048:+2048, i2 in -2048:+2048
-        @test Float16x2(Int16x2(i1, i2)) == Float16x2(i1, i2)
-        @test Int16x2(Float16x2(i1, i2)) == Int16x2(i1, i2)
+        push!(xs, (i1, i2))
+        push!(x, Int16x2(i1, i2))
     end
+    while length(xs) % 1024 ≠ 0
+        push!(xs, (0, 0))
+        push!(x, Int16x2(0, 0))
+    end
+
+    function compare(fl, fr; atol=nothing)
+        rcpul = run_on_cpu(fl, xs, x)
+        rcpur = run_on_cpu(fr, xs, x)
+        if atol ≡ nothing
+            @test rcpul == rcpur
+        else
+            @test all(isapprox([rcpul...], [rcpur...]; atol=atol) for (rcpul, rcpur) in zip(rcpul, rcpur))
+        end
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, xs, x)
+            run_on_cuda!(fr, rcudar, xs, x)
+            if atol ≡ nothing
+                @test rcudal == rcudar
+                @test rcudal == rcpul
+                @test rcudar == rcpur
+            else
+                @test all(isapprox([rcudal...], [rcudar...]; atol=atol) for (rcudal, rcudar) in zip(rcudal, rcudar))
+                @test all(isapprox([rcudal...], [rcpul...]; atol=atol) for (rcudal, rcpul) in zip(rcudal, rcpul))
+                @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
+            end
+        end
+        print(".")
+        flush(stdout)
+        return nothing
+    end
+
+    compare((xs, x) -> Float16(Int16(xs[1])), (xs, x) -> xs[1])
+    compare((xs, x) -> round(Int16, Float16(xs[1])), (xs, x) -> xs[1])
+
+    compare((xs, x) -> Float16x2(x), (xs, x) -> Float16x2(xs[1], xs[2]))
+    compare((xs, x) -> Int16x2(Float16x2(xs[1], xs[2])), (xs, x) -> x)
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 @testset "Convert Int16 to BFloat16" begin
-    for i in -256:+256
-        @test BFloat16(Int16(i)) == i
-        @test round(Int16, Float32(BFloat16(i))) == i
-    end
+    xs = NTuple{2,Int16}[]
+    x = Int16x2[]
 
     for i1 in -256:+256, i2 in -256:+256
-        @test BFloat16x2(Int16x2(i1, i2)) == BFloat16x2(i1, i2)
-        @test Int16x2(BFloat16x2(i1, i2)) == Int16x2(i1, i2)
+        push!(xs, (i1, i2))
+        push!(x, Int16x2(i1, i2))
     end
+    while length(xs) % 1024 ≠ 0
+        push!(xs, (0, 0))
+        push!(x, Int16x2(0, 0))
+    end
+
+    function compare(fl, fr; atol=nothing)
+        rcpul = run_on_cpu(fl, xs, x)
+        rcpur = run_on_cpu(fr, xs, x)
+        if atol ≡ nothing
+            @test rcpul == rcpur
+        else
+            @test all(isapprox([rcpul...], [rcpur...]; atol=atol) for (rcpul, rcpur) in zip(rcpul, rcpur))
+        end
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, xs, x)
+            run_on_cuda!(fr, rcudar, xs, x)
+            if atol ≡ nothing
+                @test rcudal == rcudar
+                @test rcudal == rcpul
+                @test rcudar == rcpur
+            else
+                @test all(isapprox([rcudal...], [rcudar...]; atol=atol) for (rcudal, rcudar) in zip(rcudal, rcudar))
+                @test all(isapprox([rcudal...], [rcpul...]; atol=atol) for (rcudal, rcpul) in zip(rcudal, rcpul))
+                @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
+            end
+        end
+        print(".")
+        flush(stdout)
+        return nothing
+    end
+
+    compare((xs, x) -> BFloat16(Int16(xs[1])), (xs, x) -> xs[1])
+    compare((xs, x) -> round(Int16, Float32(BFloat16(xs[1]))), (xs, x) -> xs[1])
+
+    compare((xs, x) -> BFloat16x2(x), (xs, x) -> BFloat16x2(xs[1], xs[2]))
+    compare((xs, x) -> Int16x2(BFloat16x2(xs[1], xs[2])), (xs, x) -> x)
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
 @testset "Convert Int8 to Float16" begin
-    for i in -128:+127
-        @test Float16(Int8(i)) == i
-        @test round(Int8, Float16(i)) == i
+    xs = NTuple{4,Int8}[]
+    x = Int8x4[]
+
+    for i1 in -128:127, i2 in -128:+127
+        for iter in 1:256
+            i3 = rand(Int8)
+            i4 = rand(Int8)
+            push!(xs, (i1, i2, i3, i4))
+            push!(x, Int8x4(i1, i2, i3, i4))
+        end
+    end
+    while length(xs) % 1024 ≠ 0
+        push!(xs, (0, 0, 0, 0))
+        push!(x, Int8x4(0, 0, 0, 0))
     end
 
-    for iter in 1:16777216
-        i1 = rand(Int8)
-        i2 = rand(Int8)
-        i3 = rand(Int8)
-        i4 = rand(Int8)
-        @test convert(NTuple{2,Float16x2}, Int8x4(i1, i2, i3, i4)) == (Float16x2(i1, i3), Float16x2(i2, i4))
+    function compare(fl, fr; atol=nothing)
+        rcpul = run_on_cpu(fl, xs, x)
+        rcpur = run_on_cpu(fr, xs, x)
+        if atol ≡ nothing
+            @test rcpul == rcpur
+        else
+            @test all(isapprox([rcpul...], [rcpur...]; atol=atol) for (rcpul, rcpur) in zip(rcpul, rcpur))
+        end
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, xs, x)
+            run_on_cuda!(fr, rcudar, xs, x)
+            if atol ≡ nothing
+                @test rcudal == rcudar
+                @test rcudal == rcpul
+                @test rcudar == rcpur
+            else
+                @test all(isapprox([rcudal...], [rcudar...]; atol=atol) for (rcudal, rcudar) in zip(rcudal, rcudar))
+                @test all(isapprox([rcudal...], [rcpul...]; atol=atol) for (rcudal, rcpul) in zip(rcudal, rcpul))
+                @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
+            end
+        end
+        print(".")
+        flush(stdout)
+        return nothing
     end
+
+    compare((xs, x) -> Float16(Int8(xs[1])), (xs, x) -> xs[1])
+    compare((xs, x) -> round(Int8, Float16(xs[1])), (xs, x) -> xs[1])
+
+    compare((xs, x) -> convert(NTuple{2,Float16x2}, x), (xs, x) -> (Float16x2(xs[1], xs[3]), Float16x2(xs[2], xs[4])))
+    compare((xs, x) -> Int8x4((Float16x2(xs[1], xs[3]), Float16x2(xs[2], xs[4]))), (xs, x) -> x)
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
 @testset "Convert Int4 to Float16" begin
-    for i1 in -8:+7, i2 in -8:+7
-        @test Float16x2(Int4x2(i1, i2)) == Float16x2(i1, i2)
+    xs = NTuple{8,Int8}[]
+    x = Int4x8[]
+
+    for i1 in -8:7, i2 in -8:7, i3 in -8:7, i4 in -8:7
+        for iter in 1:256
+            i5 = rand(-8:7)
+            i6 = rand(-8:7)
+            i7 = rand(-8:7)
+            i8 = rand(-8:7)
+            push!(xs, (i1, i2, i3, i4, i5, i6, i7, i8))
+            push!(x, Int4x8(i1, i2, i3, i4, i5, i6, i7, i8))
+        end
+    end
+    while length(xs) % 1024 ≠ 0
+        push!(xs, (0, 0, 0, 0, 0, 0, 0, 0))
+        push!(x, Int4x8(0, 0, 0, 0, 0, 0, 0, 0))
     end
 
-    for iter in 1:16777216
-        i1 = rand(-8:+7)
-        i2 = rand(-8:+7)
-        i3 = rand(-8:+7)
-        i4 = rand(-8:+7)
-        i5 = rand(-8:+7)
-        i6 = rand(-8:+7)
-        i7 = rand(-8:+7)
-        i8 = rand(-8:+7)
-        @test convert(NTuple{4,Float16x2}, Int4x8(i1, i2, i3, i4, i5, i6, i7, i8)) ==
-            (Float16x2(i1, i5), Float16x2(i2, i6), Float16x2(i3, i7), Float16x2(i4, i8))
+    function compare(fl, fr; atol=nothing)
+        rcpul = run_on_cpu(fl, xs, x)
+        rcpur = run_on_cpu(fr, xs, x)
+        if atol ≡ nothing
+            @test rcpul == rcpur
+        else
+            @test all(isapprox([rcpul...], [rcpur...]; atol=atol) for (rcpul, rcpur) in zip(rcpul, rcpur))
+        end
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, xs, x)
+            run_on_cuda!(fr, rcudar, xs, x)
+            if atol ≡ nothing
+                @test rcudal == rcudar
+                @test rcudal == rcpul
+                @test rcudar == rcpur
+            else
+                @test all(isapprox([rcudal...], [rcudar...]; atol=atol) for (rcudal, rcudar) in zip(rcudal, rcudar))
+                @test all(isapprox([rcudal...], [rcpul...]; atol=atol) for (rcudal, rcpul) in zip(rcudal, rcpul))
+                @test all(isapprox([rcudar...], [rcpur...]; atol=atol) for (rcudar, rcpur) in zip(rcudar, rcpur))
+            end
+        end
+        print(".")
+        flush(stdout)
+        return nothing
     end
+
+    compare((xs, x) -> Float16x2(Int4x2(xs[1], xs[2])), (xs, x) -> Float16x2(xs[1], xs[2]))
+    compare((xs, x) -> Int4x2(Float16x2(xs[1], xs[2])), (xs, x) -> Int4x2(xs[1], xs[2]))
+
+    compare(
+        (xs, x) -> convert(NTuple{4,Float16x2}, x),
+        (xs, x) -> (Float16x2(xs[1], xs[5]), Float16x2(xs[2], xs[6]), Float16x2(xs[3], xs[7]), Float16x2(xs[4], xs[8])),
+    )
+    compare(
+        (xs, x) -> Int4x8((Float16x2(xs[1], xs[5]), Float16x2(xs[2], xs[6]), Float16x2(xs[3], xs[7]), Float16x2(xs[4], xs[8]))),
+        (xs, x) -> x,
+    )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end

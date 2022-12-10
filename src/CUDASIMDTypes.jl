@@ -475,9 +475,7 @@ Base.convert(::Type{NTuple{2,Int16}}, a::Int16x2) = ((a.val >>> 0x00) % Int16, (
 function Base.convert(::Type{NTuple{2,Int32}}, a::Int16x2)
     return ((a.val >>> 0x00) % Int16 % Int32, (a.val >>> 0x10) % Int16 % Int32)::NTuple{2,Int32}
 end
-
-Int16x2(a1::Integer, a2::Integer) = Int16x2(Int16(a1), Int16(a2))
-Base.convert(::Type{NTuple{2,I}}, a::Int16x2) where {I<:Integer} = convert(NTuple{2,I}, convert(NTuple{2,Int16}, a))
+Base.convert(::Type{NTuple{2,I}}, a::Int16x2) where {I<:Integer} = I.(convert(NTuple{2,Int16}, a))
 
 Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
 
@@ -820,26 +818,20 @@ Base.reinterpret(::Type{T}, a::Types32bit) where {T<:Types32bit} = T(a.val)
 
 ################################################################################
 
+# Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
+# Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+
+# From/to Int16
+
 Float16x2(a::Int16x2) = Float16x2(Float16.(convert(NTuple{2,Int16}, a)))
 
 Int16x2(a::Float16x2) = Int16x2(round.(Int16, convert(NTuple{2,Float16}, a)))
 
-function Float16(a::Int8)
-    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
-    offset = Float16(1536)
-    b = reinterpret(Float16, reinterpret(UInt16, offset) + Int16(a)) - offset
-    return b
-end
-CUDA.@device_override function Float16(a::Int8)
-    # TODO: Turn this into a `lop3`
-    # Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
-    offset = Float16(1024)
-    b = reinterpret(Float16, reinterpret(UInt16, offset) | ((a % UInt8) ⊻ 0x80)) - (offset + 0x80)
-    return b
-end
+# From/to Int8
+
+# const lop3_and_xor_lut = Val(make_lop3_lut((a, b, c) -> (a & b) ⊻ c))
 
 function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
-    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
     offset = Float16x2(1536, 1536)
     alo, ahi = convert(NTuple{2,Int16x2}, a)
     blo = reinterpret(Float16x2, reinterpret(Int16x2, offset) + alo) - offset
@@ -847,18 +839,33 @@ function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
     return (blo, bhi)
 end
 CUDA.@device_override function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
-    # TODO: Turn this into a `lop3`
-    # Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
-    offset = Float16x2(1024, 1024)
-    alo, ahi = convert(NTuple{2,Int16x2}, a)
-    blo = reinterpret(Float16x2, reinterpret(Int16x2, offset) | (alo.val ⊻ 0x00800080)) - (offset + Float16x2(0x80, 0x80))
-    bhi = reinterpret(Float16x2, reinterpret(Int16x2, offset) | (ahi.val ⊻ 0x00800080)) - (offset + Float16x2(0x80, 0x80))
+    offset = Float16x2(0x400, 0x400)
+    # alo = lop3(a.val, 0x00ff00ff, 0x00800080, lop3_and_xor_lut)::UInt32
+    # blo = Float16x2(offset.val + alo) - (offset + Float16x2(0x80, 0x80))
+    # ahi = lop3(a.val >> 0x08, 0x00ff00ff, 0x00800080, lop3_and_xor_lut)::UInt32
+    # bhi = Float16x2(offset.val + ahi) - (offset + Float16x2(0x80, 0x80))
+    a′ = Int8x4(a.val ⊻ 0x80808080)
+    blo = Float16x2(prmt(a′.val, offset.val, 0x7250)) - (offset + Float16x2(0x80, 0x80))
+    bhi = Float16x2(prmt(a′.val, offset.val, 0x7351)) - (offset + Float16x2(0x80, 0x80))
     return (blo, bhi)
 end
 
+Int8x4(a::NTuple{2,Float16x2}) = Int8x4(Int16x2.(a))
+CUDA.@device_override function Int8x4(a::NTuple{2,Float16x2})
+    offset = Float16x2(0x400, 0x400)
+    alo, ahi = a
+    blo = alo + (offset + Float16x2(0x80, 0x80))
+    bhi = ahi + (offset + Float16x2(0x80, 0x80))
+    b = prmt(blo.val, bhi.val, 0x6240)
+    return Int8x4(b ⊻ 0x80808080)
+end
+
+# From/to Int4
+
 Float16x2(a::Int4x2) = Float16x2(Int16x2(a))
 
-# TODO: This is a single `lop3` in CUDA
+Int4x2(a::Float16x2) = Int4x2(Int16x2(a))
+
 function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
     # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
     offset = Float16x2(1536, 1536)
@@ -869,8 +876,34 @@ function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
     b4 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a4) - offset
     return (b1, b2, b3, b4)
 end
+CUDA.@device_override function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+    offset1 = Float16x2(0x0400, 0x0400)
+    offset2 = Float16x2(0x0040, 0x0040)
+    a′ = Int8x4(a.val ⊻ 0x88888888)
+    b1 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x00, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
+    b2 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x00, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
+    b3 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x08, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
+    b4 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x08, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
+    return (b1, b2, b3, b4)
+end
+
+Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
+CUDA.@device_override function Int4x8(a::NTuple{4,Float16x2})
+    offset = Float16x2(0x0400, 0x0400)
+    a1, a2, a3, a4 = a
+    b1 = a1 + (offset + Float16x2(0x8, 0x8))
+    b2 = a2 + (offset + Float16x2(0x8, 0x8))
+    b3 = a3 + (offset + Float16x2(0x8, 0x8))
+    b4 = a4 + (offset + Float16x2(0x8, 0x8))
+    b13 = prmt(b1.val, b3.val, 0x6240)
+    b24 = prmt(b2.val, b4.val, 0x6240)
+    return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04) ⊻ 0x88888888)
+end
 
 ################################################################################
+
+# Note: `BFloat(128 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 128.
+# Note: `BFloat(192 + i)` has the bit pattern for `i` in the lowermost bits. This works for -64 ≤ i < 64.
 
 BFloat16x2(a::Int16x2) = BFloat16x2(BFloat16.(convert(NTuple{2,Int16}, a)))
 
