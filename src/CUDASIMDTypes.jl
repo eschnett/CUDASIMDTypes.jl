@@ -560,13 +560,17 @@ function Float16x2(a1::Float16, a2::Float16)
     return Float16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
 end
 CUDA.@device_override function Float16x2(a1::Float16, a2::Float16)
-    return Float16x2(prmt(reinterpret(UInt16, a1) % UInt32, reinterpret(UInt16, a2) % UInt32, 0x5410))
+    return Float16x2(
+        LLVM.Interop.@asmcall(
+            "mov.b32 \$0, {\$1, \$2};", "=r,h,h", UInt32, Tuple{UInt16,UInt16}, reinterpret(UInt16, a1), reinterpret(UInt16, a2),
+        )
+    )
 end
 function Float16x2(a1::Float32, a2::Float32)
     return Float16x2((reinterpret(UInt16, Float16(a1)) % UInt32) << 0x00 | (reinterpret(UInt16, Float16(a2)) % UInt32) << 0x10)
 end
 CUDA.@device_override function Float16x2(a1::Float32, a2::Float32)
-    return Float16x2(LLVM.Interop.@asmcall("cvt.rn.f16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
+    return Float16x2(LLVM.Interop.@asmcall("cvt.rn.f16x2.f32 \$0, \$2, \$1;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a1, a2))
 end
 Float16x2(a1::Real, a2::Real) = Float16x2(Float16(a1), Float16(a2))
 Float16x2(a::NTuple{2,<:Real}) = Float16x2(a...)
@@ -585,6 +589,22 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::Float1
 end
 
 Base.show(io::IO, a::Float16x2) = print(io, convert(NTuple{2,Float32}, a))
+
+Base.reverse(a::Float16x2) = Float16x2(reverse(convert(NTuple{2,Float16}, a)))
+CUDA.@device_override function Base.reverse(a::Float16x2)
+    return Float16x2(LLVM.Interop.@asmcall(
+        """{
+               .reg .f16 %lo, %hi;
+               mov.b32 {%lo, %hi}, \$1;
+               mov.b32 \$0, {%hi, %lo};
+           }
+           """,
+        "=r,r",
+        UInt32,
+        Tuple{UInt32},
+        a.val,
+    ))
+end
 
 Base.zero(::Type{Float16x2}) = Float16x2(0.0f0, 0.0f0)
 Base.zero(::Float16x2) = zero(Float16x2)
@@ -674,19 +694,89 @@ CUDA.@device_override function Base.min(a::Float16x2, b::Float16x2)
     return Float16x2(LLVM.Interop.@asmcall("min.f16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
 
+export complex_mul
+function complex_mul(a::Float16x2, b::Float16x2)
+    alo, ahi = convert(NTuple{2,Float16}, a)
+    blo, bhi = convert(NTuple{2,Float16}, b)
+    rlo = muladd(-ahi, bhi, alo * blo)
+    rhi = muladd(ahi, blo, alo * bhi)
+    return Float16x2(rlo, rhi)
+end
+CUDA.@device_override function complex_mul(a::Float16x2, b::Float16x2)
+    return Float16x2(
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .f16 %r1re, %r1im, %r2re, %r2im, %r1imneg, %retmp, %r0re, %imtmp, %r0im;
+                   mov.b32 {%r1re, %r1im}, \$1;
+                   mov.b32 {%r2re, %r2im}, \$2;
+                   mul.f16 %retmp, %r1re, %r2re;
+                   neg.f16 %r1imneg, %r1im;
+                   fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
+                   mul.f16 %imtmp, %r1re, %r2im;
+                   fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
+                   mov.b32 \$0, {%r0re, %r0im};
+               }
+               """,
+            "=r,r,r",
+            UInt32,
+            Tuple{UInt32,UInt32},
+            a.val,
+            b.val,
+        )
+    )
+end
+export swapped_complex_mul
+swapped_complex_mul(a::Float16x2, b::Float16x2) = reverse(complex_mul(reverse(a), reverse(b)))
+export complex_muladd
+function complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2)
+    alo, ahi = convert(NTuple{2,Float16}, a)
+    blo, bhi = convert(NTuple{2,Float16}, b)
+    clo, chi = convert(NTuple{2,Float16}, c)
+    rlo = muladd(-ahi, bhi, muladd(alo, blo, clo))
+    rhi = muladd(ahi, blo, muladd(alo, bhi, chi))
+    return Float16x2(rlo, rhi)
+end
+CUDA.@device_override function complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2)
+    return Float16x2(
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .f16 %r1re, %r1im, %r2re, %r2im, %r3re, %r3im, %r1imneg, %retmp, %r0re, %imtmp, %r0im;
+                   mov.b32 {%r1re, %r1im}, \$1;
+                   mov.b32 {%r2re, %r2im}, \$2;
+                   mov.b32 {%r3re, %r3im}, \$3;
+                   fma.rn.f16 %retmp, %r1re, %r2re, %r3re;
+                   neg.f16 %r1imneg, %r1im;
+                   fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
+                   fma.rn.f16 %imtmp, %r1re, %r2im, %r3im;
+                   fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
+                   mov.b32 \$0, {%r0re, %r0im};
+               }
+               """,
+            "=r,r,r,r",
+            UInt32,
+            Tuple{UInt32,UInt32,UInt32},
+            a.val,
+            b.val,
+            c.val,
+        )
+    )
+end
+export swapped_complex_muladd
+swapped_complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
+
 ################################################################################
 
 function BFloat16x2(a1::BFloat16, a2::BFloat16)
     return BFloat16x2((reinterpret(UInt16, a1) % UInt32) << 0x00 | (reinterpret(UInt16, a2) % UInt32) << 0x10)
 end
-CUDA.@device_override function BFloat16x2(a1::Float16, a2::Float16)
+CUDA.@device_override function BFloat16x2(a1::BFloat16, a2::BFloat16)
     return BFloat16x2(prmt(reinterpret(UInt16, a1) % UInt32, reinterpret(UInt16, a2) % UInt32, 0x5410))
 end
 function BFloat16x2(a1::Float32, a2::Float32)
     return BFloat16x2((reinterpret(UInt16, BFloat16(a1)) % UInt32) << 0x00 | (reinterpret(UInt16, BFloat16(a2)) % UInt32) << 0x10)
 end
 CUDA.@device_override function BFloat16x2(a1::Float32, a2::Float32)
-    return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a2, a1))
+    return BFloat16x2(LLVM.Interop.@asmcall("cvt.rn.bf16x2.f32 \$0, \$2, \$1;", "=r,r,r", UInt32, Tuple{Float32,Float32}, a1, a2))
 end
 BFloat16x2(a1::Real, a2::Real) = BFloat16x2(BFloat16(a1), BFloat16(a2))
 BFloat16x2(a::NTuple{2,<:Real}) = BFloat16x2(a...)
@@ -702,12 +792,50 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat
     # (Converting from `f16` is more lenient, it can have a 32-bit
     # register as input.)
     return (
-        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x00) % UInt16),
-        LLVM.Interop.@asmcall("cvt.f32.bf16 \$0, \$1;", "=r,h", Float32, Tuple{UInt16}, (a.val >> 0x10) % UInt16)
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .b16 %rlo, %rhi;
+                   mov.b32 {%rlo, %rhi}, \$1;
+                   cvt.f32.bf16 \$0, %rlo;
+               }
+               """,
+            "=r,r",
+            Float32,
+            Tuple{UInt32},
+            a.val,
+        ),
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .b16 %rlo, %rhi;
+                   mov.b32 {%rlo, %rhi}, \$1;
+                   cvt.f32.bf16 \$0, %rhi;
+               }
+               """,
+            "=r,r",
+            Float32,
+            Tuple{UInt32},
+            a.val,
+        ),
     )::NTuple{2,Float32}
 end
 
 Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
+
+Base.reverse(a::BFloat16x2) = BFloat16x2(reverse(convert(NTuple{2,BFloat16}, a)))
+CUDA.@device_override function Base.reverse(a::BFloat16x2)
+    return BFloat16x2(LLVM.Interop.@asmcall(
+        """{
+               .reg .b16 %lo, %hi;
+               mov.b32 {%lo, %hi}, \$1;
+               mov.b32 \$0, {%hi, %lo};
+           }
+           """,
+        "=r,r",
+        UInt32,
+        Tuple{UInt32},
+        a.val,
+    ))
+end
 
 Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
 Base.zero(::BFloat16x2) = zero(BFloat16x2)
@@ -803,6 +931,54 @@ CUDA.@device_override function Base.min(a::BFloat16x2, b::BFloat16x2)
     return BFloat16x2(LLVM.Interop.@asmcall("min.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
 
+export complex_mul
+function complex_mul(a::BFloat16x2, b::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    rlo = muladd(-ahi, bhi, alo * blo)
+    rhi = muladd(ahi, blo, alo * bhi)
+    return BFloat16x2(rlo, rhi)
+end
+CUDA.@device_override complex_mul(a::BFloat16x2, b::BFloat16x2) = complex_muladd(a, b, zero(BFloat16x2))
+export swapped_complex_mul
+swapped_complex_mul(a::BFloat16x2, b::BFloat16x2) = reverse(complex_mul(reverse(a), reverse(b)))
+export complex_muladd
+function complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    clo, chi = convert(NTuple{2,BFloat16}, c)
+    rlo = muladd(-ahi, bhi, muladd(alo, blo, clo))
+    rhi = muladd(ahi, blo, muladd(alo, bhi, chi))
+    return BFloat16x2(rlo, rhi)
+end
+CUDA.@device_override function complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    return BFloat16x2(
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .b16 %r1re, %r1im, %r2re, %r2im, %r3re, %r3im, %r1imneg, %retmp, %r0re, %imtmp, %r0im;
+                   mov.b32 {%r1re, %r1im}, \$1;
+                   mov.b32 {%r2re, %r2im}, \$2;
+                   mov.b32 {%r3re, %r3im}, \$3;
+                   fma.rn.bf16 %retmp, %r1re, %r2re, %r3re;
+                   neg.bf16 %r1imneg, %r1im;
+                   fma.rn.bf16 %r0re, %r1imneg, %r2im, %retmp;
+                   fma.rn.bf16 %imtmp, %r1re, %r2im, %r3im;
+                   fma.rn.bf16 %r0im, %r1im, %r2re, %imtmp;
+                   mov.b32 \$0, {%r0re, %r0im};
+               }
+               """,
+            "=r,r,r,r",
+            UInt32,
+            Tuple{UInt32,UInt32,UInt32},
+            a.val,
+            b.val,
+            c.val,
+        )
+    )
+end
+export swapped_complex_muladd
+swapped_complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
+
 ################################################################################
 
 const Types8bit = Int4x2
@@ -826,6 +1002,23 @@ Base.reinterpret(::Type{T}, a::Types32bit) where {T<:Types32bit} = T(a.val)
 Float16x2(a::Int16x2) = Float16x2(Float16.(convert(NTuple{2,Int16}, a)))
 
 Int16x2(a::Float16x2) = Int16x2(round.(Int16, convert(NTuple{2,Float16}, a)))
+CUDA.@device_override function Int16x2(a::Float16x2)
+    return Int16x2(LLVM.Interop.@asmcall(
+        """{
+               .reg .f16 %r1lo, %r1hi;
+               .reg .s16 %r0lo, %r0hi;
+               mov.b32 {%r1lo, %r1hi}, \$1;
+               cvt.rni.s16.f16 %r0lo, %r1lo;
+               cvt.rni.s16.f16 %r0hi, %r1hi;
+               mov.b32 \$0, {%r0lo, %r0hi};
+           }
+           """,
+        "=r,r",
+        UInt32,
+        Tuple{UInt32},
+        a.val,
+    ))
+end
 
 # From/to Int8
 

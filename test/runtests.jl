@@ -13,6 +13,19 @@ const EL = "$(CSI)K"
 
 make_int4(x::Integer) = ((x + 8) & 0xf - 8) % Int8
 
+tuple2complex(ab::NTuple{2}) = Complex(ab[1], ab[2])
+complex2tuple(c::Complex) = (c.re, c.im)
+tuple_complex_mul(x::NTuple{2}, y::NTuple{2}) = complex2tuple(tuple2complex(x) * tuple2complex(y))
+function tuple_complex_muladd(x::NTuple{2}, y::NTuple{2}, z::NTuple{2})
+    return complex2tuple(muladd(tuple2complex(x), tuple2complex(y), tuple2complex(z)))
+end
+function tuple_swapped_complex_mul(x::NTuple{2}, y::NTuple{2})
+    return reverse(complex2tuple(tuple2complex(reverse(x)) * tuple2complex(reverse(y))))
+end
+function tuple_swapped_complex_muladd(x::NTuple{2}, y::NTuple{2}, z::NTuple{2})
+    return reverse(complex2tuple(muladd(tuple2complex(reverse(x)), tuple2complex(reverse(y)), tuple2complex(reverse(z)))))
+end
+
 ################################################################################
 
 run_on_cpu(f, inputs...) = f.(inputs...)
@@ -588,6 +601,8 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> (0, xs[2]),
     )
 
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, reverse(x)), (n, xs, ys, zs, x, y, z) -> reverse(xs))
+
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, zero(Float16x2)), (n, xs, ys, zs, x, y, z) -> (0, 0))
     compare((n, xs, ys, zs, x, y, z) -> zero(Float16x2), (n, xs, ys, zs, x, y, z) -> zero(x))
 
@@ -603,9 +618,29 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x - y), (n, xs, ys, zs, x, y, z) -> xs .- ys; atol=eps(Float16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x * y), (n, xs, ys, zs, x, y, z) -> xs .* ys; atol=eps(Float16))
     compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_mul(x, y)),
+        (n, xs, ys, zs, x, y, z) -> tuple_complex_mul(xs, ys);
+        atol=2 * eps(Float16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, swapped_complex_mul(x, y)),
+        (n, xs, ys, zs, x, y, z) -> tuple_swapped_complex_mul(xs, ys);
+        atol=2 * eps(Float16),
+    )
+    compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, muladd(x, y, z)),
         (n, xs, ys, zs, x, y, z) -> muladd.(xs, ys, zs);
         atol=2 * eps(Float16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_muladd(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_complex_muladd(xs, ys, zs);
+        atol=3 * eps(Float16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, swapped_complex_muladd(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_swapped_complex_muladd(xs, ys, zs);
+        atol=3 * eps(Float16),
     )
 
     print("$(CR)$(EL)")
@@ -701,9 +736,29 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x - y), (n, xs, ys, zs, x, y, z) -> xs .- ys; atol=eps(BFloat16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x * y), (n, xs, ys, zs, x, y, z) -> xs .* ys; atol=eps(BFloat16))
     compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_mul(x, y)),
+        (n, xs, ys, zs, x, y, z) -> tuple_complex_mul(xs, ys);
+        atol=2 * eps(BFloat16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, swapped_complex_mul(x, y)),
+        (n, xs, ys, zs, x, y, z) -> tuple_swapped_complex_mul(xs, ys);
+        atol=2 * eps(BFloat16),
+    )
+    compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, muladd(x, y, z)),
         (n, xs, ys, zs, x, y, z) -> muladd.(xs, ys, zs);
         atol=2 * eps(BFloat16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_muladd(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_complex_muladd(xs, ys, zs);
+        atol=3 * eps(BFloat16),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, swapped_complex_muladd(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_swapped_complex_muladd(xs, ys, zs);
+        atol=3 * eps(BFloat16),
     )
 
     print("$(CR)$(EL)")
