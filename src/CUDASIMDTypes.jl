@@ -606,7 +606,8 @@ CUDA.@device_override function Base.reverse(a::Float16x2)
     ))
 end
 
-Base.zero(::Type{Float16x2}) = Float16x2(0.0f0, 0.0f0)
+# Base.zero(::Type{Float16x2}) = Float16x2(0.0f0, 0.0f0)
+Base.zero(::Type{Float16x2}) = Float16x2(UInt32(0))
 Base.zero(::Float16x2) = zero(Float16x2)
 Base.iszero(a::Float16x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Float16x2}) = Float16x2(rand(rng, Float32), rand(rng, Float32))
@@ -837,7 +838,8 @@ CUDA.@device_override function Base.reverse(a::BFloat16x2)
     ))
 end
 
-Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
+# Base.zero(::Type{BFloat16x2}) = BFloat16x2(0.0f0, 0.0f0)
+Base.zero(::Type{BFloat16x2}) = BFloat16x2(UInt32(0))
 Base.zero(::BFloat16x2) = zero(BFloat16x2)
 Base.iszero(a::BFloat16x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{BFloat16x2}) = BFloat16x2(rand(rng, Float32), rand(rng, Float32))
