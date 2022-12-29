@@ -1061,7 +1061,7 @@ Float16x2(a::Int4x2) = Float16x2(Int16x2(a))
 
 Int4x2(a::Float16x2) = Int4x2(Int16x2(a))
 
-function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+@inline function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
     # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
     offset = Float16x2(1536, 1536)
     a1, a2, a3, a4 = convert(NTuple{4,Int16x2}, a)
@@ -1071,7 +1071,7 @@ function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
     b4 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a4) - offset
     return (b1, b2, b3, b4)
 end
-CUDA.@device_override function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+CUDA.@device_override @inline function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
     offset1 = Float16x2(0x0400, 0x0400)
     offset2 = Float16x2(0x0040, 0x0040)
     a′ = Int8x4(a.val ⊻ 0x88888888)
@@ -1083,7 +1083,7 @@ CUDA.@device_override function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4
 end
 
 Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
-CUDA.@device_override function Int4x8(a::NTuple{4,Float16x2})
+CUDA.@device_override @inline function Int4x8(a::NTuple{4,Float16x2})
     offset = Float16x2(0x0400, 0x0400)
     a1, a2, a3, a4 = a
     b1 = a1 + (offset + Float16x2(0x8, 0x8))
