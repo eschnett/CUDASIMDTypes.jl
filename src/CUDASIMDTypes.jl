@@ -695,6 +695,20 @@ CUDA.@device_override function Base.min(a::Float16x2, b::Float16x2)
     return Float16x2(LLVM.Interop.@asmcall("min.f16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
 
+# CUDA SDK 11.6.2, file "cuda/targets/x86_64-linux/include/cuda_fp16.hpp", lines 2419 and following:
+# __CUDA_FP16_DECL__ __half2 __hcmadd(const __half2 a, const __half2 b, const __half2 c)
+# {
+#     // fast version of complex multiply-accumulate
+#     // (a.re, a.im) * (b.re, b.im) + (c.re, c.im)
+#     // acc.re = (c.re + a.re*b.re) - a.im*b.im
+#     // acc.im = (c.im + a.re*b.im) + a.im*b.re
+#     __half real_tmp =  __hfma(a.x, b.x, c.x);
+#     __half img_tmp  =  __hfma(a.x, b.y, c.y);
+#     real_tmp = __hfma(__hneg(a.y), b.y, real_tmp);
+#     img_tmp  = __hfma(a.y,         b.x, img_tmp);
+#     return make_half2(real_tmp, img_tmp);
+# }
+
 export complex_mul
 function complex_mul(a::Float16x2, b::Float16x2)
     alo, ahi = convert(NTuple{2,Float16}, a)
@@ -711,9 +725,9 @@ CUDA.@device_override function complex_mul(a::Float16x2, b::Float16x2)
                    mov.b32 {%r1re, %r1im}, \$1;
                    mov.b32 {%r2re, %r2im}, \$2;
                    mul.f16 %retmp, %r1re, %r2re;
+                   mul.f16 %imtmp, %r1re, %r2im;
                    neg.f16 %r1imneg, %r1im;
                    fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
-                   mul.f16 %imtmp, %r1re, %r2im;
                    fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
                    mov.b32 \$0, {%r0re, %r0im};
                }
@@ -728,6 +742,29 @@ CUDA.@device_override function complex_mul(a::Float16x2, b::Float16x2)
 end
 export swapped_complex_mul
 swapped_complex_mul(a::Float16x2, b::Float16x2) = reverse(complex_mul(reverse(a), reverse(b)))
+CUDA.@device_override function swapped_complex_mul(a::Float16x2, b::Float16x2)
+    return Float16x2(
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .f16 %r1re, %r1im, %r2re, %r2im, %r1imneg, %retmp, %r0re, %imtmp, %r0im;
+                   mov.b32 {%r1im, %r1re}, \$1;
+                   mov.b32 {%r2im, %r2re}, \$2;
+                   mul.f16 %retmp, %r1re, %r2re;
+                   mul.f16 %imtmp, %r1re, %r2im;
+                   neg.f16 %r1imneg, %r1im;
+                   fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
+                   fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
+                   mov.b32 \$0, {%r0im, %r0re};
+               }
+               """,
+            "=r,r,r",
+            UInt32,
+            Tuple{UInt32,UInt32},
+            a.val,
+            b.val,
+        )
+    )
+end
 export complex_muladd
 function complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2)
     alo, ahi = convert(NTuple{2,Float16}, a)
@@ -746,9 +783,9 @@ CUDA.@device_override function complex_muladd(a::Float16x2, b::Float16x2, c::Flo
                    mov.b32 {%r2re, %r2im}, \$2;
                    mov.b32 {%r3re, %r3im}, \$3;
                    fma.rn.f16 %retmp, %r1re, %r2re, %r3re;
+                   fma.rn.f16 %imtmp, %r1re, %r2im, %r3im;
                    neg.f16 %r1imneg, %r1im;
                    fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
-                   fma.rn.f16 %imtmp, %r1re, %r2im, %r3im;
                    fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
                    mov.b32 \$0, {%r0re, %r0im};
                }
@@ -764,6 +801,31 @@ CUDA.@device_override function complex_muladd(a::Float16x2, b::Float16x2, c::Flo
 end
 export swapped_complex_muladd
 swapped_complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
+CUDA.@device_override function swapped_complex_muladd(a::Float16x2, b::Float16x2, c::Float16x2)
+    return Float16x2(
+        LLVM.Interop.@asmcall(
+            """{
+                   .reg .f16 %r1re, %r1im, %r2re, %r2im, %r3re, %r3im, %r1imneg, %retmp, %r0re, %imtmp, %r0im;
+                   mov.b32 {%r1im, %r1re}, \$1;
+                   mov.b32 {%r2im, %r2re}, \$2;
+                   mov.b32 {%r3im, %r3re}, \$3;
+                   fma.rn.f16 %retmp, %r1re, %r2re, %r3re;
+                   fma.rn.f16 %imtmp, %r1re, %r2im, %r3im;
+                   neg.f16 %r1imneg, %r1im;
+                   fma.rn.f16 %r0re, %r1imneg, %r2im, %retmp;
+                   fma.rn.f16 %r0im, %r1im, %r2re, %imtmp;
+                   mov.b32 \$0, {%r0im, %r0re};
+               }
+               """,
+            "=r,r,r,r",
+            UInt32,
+            Tuple{UInt32,UInt32,UInt32},
+            a.val,
+            b.val,
+            c.val,
+        )
+    )
+end
 
 ################################################################################
 
