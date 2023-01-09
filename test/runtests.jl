@@ -184,7 +184,7 @@ end
     compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16x2(xlo, xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
 
     # Test output
-    @test string.(x) == string.(tuple.(xlo, xhi))
+    @test string.(x) == "Int4x2" .* string.(tuple.(xlo, xhi))
 
     # Test nibble ordering
     compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, Int4x2(x.val & 0x0f)), (xlo, xhi, ylo, yhi, x, y) -> (xlo, 0))
@@ -304,7 +304,7 @@ Random.seed!(0)
         (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8])),
     )
 
-    @test string.(x) == string.(xs)
+    @test string.(x) == "Int4x8" .* string.(xs)
 
     compare(
         (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0000000f)), (n, xs, ys, x, y) -> (xs[1], 0, 0, 0, 0, 0, 0, 0)
@@ -413,7 +413,7 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int64}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int16x2}, x), (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4])))
 
-    @test string.(x) == string.(xs)
+    @test string.(x) == "Int8x4" .* string.(xs)
 
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x000000ff)), (n, xs, ys, x, y) -> (xs[1], 0, 0, 0))
     compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x0000ff00)), (n, xs, ys, x, y) -> (0, xs[2], 0, 0))
@@ -497,7 +497,7 @@ Random.seed!(0)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x), (n, xs, ys, x, y) -> xs)
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int64}, x), (n, xs, ys, x, y) -> xs)
 
-    @test string.(x) == string.(xs)
+    @test string.(x) == "Int16x2" .* string.(xs)
 
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0x0000ffff)), (n, xs, ys, x, y) -> (xs[1], 0))
     compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0xffff0000)), (n, xs, ys, x, y) -> (0, xs[2]))
@@ -590,7 +590,7 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float16}, x), (n, xs, ys, zs, x, y, z) -> xs)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
-    @test string.(x) == string.(xs)
+    @test string.(x) == "Float16x2" .* string.(xs)
 
     compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, Float16x2(x.val & 0x0000ffff)),
@@ -710,7 +710,7 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,BFloat16}, x), (n, xs, ys, zs, x, y, z) -> xs)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
-    @test string.(x) == string.(xs)
+    @test string.(x) == "BFloat16x2" .* string.(xs)
 
     compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, BFloat16x2(x.val & 0x0000ffff)),

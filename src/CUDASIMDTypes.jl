@@ -221,7 +221,7 @@ function Base.convert(::Type{NTuple{2,I}}, a::Int4x2) where {I<:Integer}
     return (alo, ahi)
 end
 
-Base.show(io::IO, a::Int4x2) = print(io, convert(NTuple{2,Int32}, a))
+Base.show(io::IO, a::Int4x2) = print(io, "Int4x2", convert(NTuple{2,Int32}, a))
 
 Base.length(::Int4x2) = 1
 
@@ -301,7 +301,7 @@ function Base.convert(::Type{NTuple{8,I}}, a::Int4x8) where {I<:Integer}
     return (alo[1], ahi[1], alo[2], ahi[2], alo[3], ahi[3], alo[4], ahi[4])
 end
 
-Base.show(io::IO, a::Int4x8) = print(io, convert(NTuple{8,Int32}, a))
+Base.show(io::IO, a::Int4x8) = print(io, "Int4x8", convert(NTuple{8,Int32}, a))
 
 Base.zero(::Type{Int4x8}) = Int4x8(Int32(0))
 Base.zero(::Int4x8) = zero(Int4x8)
@@ -404,7 +404,7 @@ CUDA.@device_override function Base.convert(::Type{NTuple{4,Int32}}, a::Int8x4)
 end
 Base.convert(::Type{NTuple{4,I}}, a::Int8x4) where {I<:Integer} = convert(NTuple{4,I}, convert(NTuple{4,Int32}, a))
 
-Base.show(io::IO, a::Int8x4) = print(io, convert(NTuple{4,Int32}, a))
+Base.show(io::IO, a::Int8x4) = print(io, "Int8x4", convert(NTuple{4,Int32}, a))
 
 Base.zero(::Type{Int8x4}) = Int8x4(Int32(0))
 Base.zero(::Int8x4) = zero(Int8x4)
@@ -477,7 +477,7 @@ function Base.convert(::Type{NTuple{2,Int32}}, a::Int16x2)
 end
 Base.convert(::Type{NTuple{2,I}}, a::Int16x2) where {I<:Integer} = I.(convert(NTuple{2,Int16}, a))
 
-Base.show(io::IO, a::Int16x2) = print(io, convert(NTuple{2,Int32}, a))
+Base.show(io::IO, a::Int16x2) = print(io, "Int16x2", convert(NTuple{2,Int32}, a))
 
 Base.zero(::Type{Int16x2}) = Int16x2(Int32(0))
 Base.zero(::Int16x2) = zero(Int16x2)
@@ -588,7 +588,7 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::Float1
     )::NTuple{2,Float32}
 end
 
-Base.show(io::IO, a::Float16x2) = print(io, convert(NTuple{2,Float32}, a))
+Base.show(io::IO, a::Float16x2) = print(io, "Float16x2", convert(NTuple{2,Float32}, a))
 
 Base.reverse(a::Float16x2) = Float16x2(reverse(convert(NTuple{2,Float16}, a)))
 CUDA.@device_override function Base.reverse(a::Float16x2)
@@ -882,7 +882,7 @@ CUDA.@device_override function Base.convert(::Type{NTuple{2,Float32}}, a::BFloat
     )::NTuple{2,Float32}
 end
 
-Base.show(io::IO, a::BFloat16x2) = print(io, convert(NTuple{2,Float32}, a))
+Base.show(io::IO, a::BFloat16x2) = print(io, "BFloat16x2", convert(NTuple{2,Float32}, a))
 
 Base.reverse(a::BFloat16x2) = BFloat16x2(reverse(convert(NTuple{2,BFloat16}, a)))
 CUDA.@device_override function Base.reverse(a::BFloat16x2)
