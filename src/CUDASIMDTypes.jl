@@ -718,6 +718,7 @@ function complex_mul(a::Float16x2, b::Float16x2)
     return Float16x2(rlo, rhi)
 end
 CUDA.@device_override function complex_mul(a::Float16x2, b::Float16x2)
+    # See `__hcmadd`
     return Float16x2(
         LLVM.Interop.@asmcall(
             """{
@@ -743,6 +744,7 @@ end
 export swapped_complex_mul
 swapped_complex_mul(a::Float16x2, b::Float16x2) = reverse(complex_mul(reverse(a), reverse(b)))
 CUDA.@device_override function swapped_complex_mul(a::Float16x2, b::Float16x2)
+    # See `__hcmadd`
     return Float16x2(
         LLVM.Interop.@asmcall(
             """{
