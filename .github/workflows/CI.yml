@@ -24,7 +24,7 @@ jobs:
             version: "1.8"
           - arch: "x64"
             os: "ubuntu-latest"
-            version: "1.9-beta"
+            version: "1.9.0-beta3"
           - arch: "x64"
             os: "ubuntu-latest"
             version: "1.7"
