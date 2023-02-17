@@ -263,6 +263,7 @@ function Base.max(a::Int4x2, b::Int4x2)
     rs = max.(as, bs)
     return Int4x2(rs...)
 end
+Base.clamp(a::Int4x2, alo::Int4x2, ahi::Int4x2) = min(max(a, alo), ahi)
 
 ################################################################################
 
@@ -357,6 +358,7 @@ function Base.max(a::Int4x8, b::Int4x8)
     rs = max.(as, bs)
     return Int4x8(rs...)
 end
+Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8) = min(max(a, alo), ahi)
 
 ################################################################################
 
@@ -460,6 +462,7 @@ function Base.max(a::Int8x4, b::Int8x4)
     rs = max.(as, bs)
     return Int8x4(rs...)
 end
+Base.clamp(a::Int8x4, alo::Int8x4, ahi::Int8x4) = min(max(a, alo), ahi)
 
 ################################################################################
 
@@ -531,6 +534,7 @@ function Base.max(a::Int16x2, b::Int16x2)
     rs = max.(as, bs)
     return Int16x2(rs...)
 end
+Base.clamp(a::Int16x2, alo::Int16x2, ahi::Int16x2) = min(max(a, alo), ahi)
 
 ################################################################################
 
@@ -694,6 +698,7 @@ end
 CUDA.@device_override function Base.min(a::Float16x2, b::Float16x2)
     return Float16x2(LLVM.Interop.@asmcall("min.f16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
+Base.clamp(a::Float16x2, alo::Float16x2, ahi::Float16x2) = min(max(a, alo), ahi)
 
 # CUDA SDK 11.6.2, file "cuda/targets/x86_64-linux/include/cuda_fp16.hpp", lines 2419 and following:
 # __CUDA_FP16_DECL__ __half2 __hcmadd(const __half2 a, const __half2 b, const __half2 c)
@@ -996,6 +1001,7 @@ end
 CUDA.@device_override function Base.min(a::BFloat16x2, b::BFloat16x2)
     return BFloat16x2(LLVM.Interop.@asmcall("min.bf16x2 \$0, \$1, \$2;", "=r,r,r", UInt32, Tuple{UInt32,UInt32}, a.val, b.val))
 end
+Base.clamp(a::BFloat16x2, alo::BFloat16x2, ahi::BFloat16x2) = min(max(a, alo), ahi)
 
 export complex_mul
 function complex_mul(a::BFloat16x2, b::BFloat16x2)

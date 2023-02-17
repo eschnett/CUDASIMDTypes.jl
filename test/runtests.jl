@@ -26,6 +26,8 @@ function tuple_swapped_complex_muladd(x::NTuple{2}, y::NTuple{2}, z::NTuple{2})
     return reverse(complex2tuple(muladd(tuple2complex(reverse(x)), tuple2complex(reverse(y)), tuple2complex(reverse(z)))))
 end
 
+clamp1(a, b, c) = clamp(a, min(b, c), max(b, c))
+
 ################################################################################
 
 run_on_cpu(f, inputs...) = f.(inputs...)
@@ -113,37 +115,47 @@ Random.seed!(0)
     end
 end
 
+Random.seed!(0)
 @testset "Int4x2" begin
-    # Test exhaustively
+    # Test exhaustively for x and y
     xlo = Int32[]
     xhi = Int32[]
     ylo = Int32[]
     yhi = Int32[]
+    zlo = Int32[]
+    zhi = Int32[]
     x = Int4x2[]
     y = Int4x2[]
+    z = Int4x2[]
 
     for xlo1 in (-Int32(8)):(+Int32(7)),
         xhi1 in (-Int32(8)):(+Int32(7)),
         ylo1 in (-Int32(8)):(+Int32(7)),
         yhi1 in (-Int32(8)):(+Int32(7))
 
+        zlo1 = rand((-Int32(8)):(+Int32(7)))
+        zhi1 = rand((-Int32(8)):(+Int32(7)))
+
         push!(xlo, xlo1)
         push!(xhi, xhi1)
         push!(ylo, ylo1)
         push!(yhi, yhi1)
+        push!(zlo, zlo1)
+        push!(zhi, zhi1)
         push!(x, Int4x2(xlo1, xhi1))
         push!(y, Int4x2(ylo1, yhi1))
+        push!(z, Int4x2(zlo1, zhi1))
     end
 
     function compare(fl, fr)
-        rcpul = run_on_cpu(fl, xlo, xhi, ylo, yhi, x, y)
-        rcpur = run_on_cpu(fr, xlo, xhi, ylo, yhi, x, y)
+        rcpul = run_on_cpu(fl, xlo, xhi, ylo, yhi, zlo, zhi, x, y, z)
+        rcpur = run_on_cpu(fr, xlo, xhi, ylo, yhi, zlo, zhi, x, y, z)
         @test rcpul == rcpur
         if CUDA.functional()
             rcudal = similar(rcpul)
             rcudar = similar(rcpur)
-            run_on_cuda!(fl, rcudal, xlo, xhi, ylo, yhi, x, y)
-            run_on_cuda!(fr, rcudar, xlo, xhi, ylo, yhi, x, y)
+            run_on_cuda!(fl, rcudal, xlo, xhi, ylo, yhi, zlo, zhi, x, y, z)
+            run_on_cuda!(fr, rcudar, xlo, xhi, ylo, yhi, zlo, zhi, x, y, z)
             @test rcudal == rcudar
             @test rcudal == rcpul
             @test rcudar == rcpur
@@ -154,78 +166,126 @@ end
     end
 
     # Test constructors
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int8(xlo), Int8(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int16(xlo), Int16(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int32(xlo), Int32(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2((Int64(xlo), Int64(xhi))), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int8}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int16}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int64}, x), (xlo, xhi, ylo, yhi, x, y) -> (xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2((Int8(xlo), Int8(xhi))), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2((Int16(xlo), Int16(xhi))), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2((Int32(xlo), Int32(xhi))), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2((Int64(xlo), Int64(xhi))), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int8}, x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo, xhi)
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int16}, x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo, xhi),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo, xhi),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int64}, x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo, xhi),
+    )
 
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int8(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int32(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int64(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int8(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int16(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int32(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int64(xlo), Int8(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int8(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int16(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int32(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int64(xlo), Int16(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int8(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int16(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int32(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int64(xlo), Int32(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int8(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int16(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int32(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int64(xlo), Int64(xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
 
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int16x2(x), (xlo, xhi, ylo, yhi, x, y) -> Int16x2(xlo, xhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> Int4x2(Int16x2(xlo, xhi)), (xlo, xhi, ylo, yhi, x, y) -> x)
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int16x2(x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int16x2(xlo, xhi))
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> Int4x2(Int16x2(xlo, xhi)), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x)
 
     # Test output
     @test string.(x) == "Int4x2" .* string.(tuple.(xlo, xhi))
 
     # Test nibble ordering
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, Int4x2(x.val & 0x0f)), (xlo, xhi, ylo, yhi, x, y) -> (xlo, 0))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, Int4x2(x.val & 0xf0)), (xlo, xhi, ylo, yhi, x, y) -> (0, xhi))
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, Int4x2(x.val & 0x0f)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo, 0),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, Int4x2(x.val & 0xf0)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (0, xhi),
+    )
 
     # zero
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, zero(Int4x2)), (xlo, xhi, ylo, yhi, x, y) -> (0, 0))
-    compare((xlo, xhi, ylo, yhi, x, y) -> zero(Int4x2), (xlo, xhi, ylo, yhi, x, y) -> zero(x))
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, zero(Int4x2)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (0, 0),
+    )
+    compare((xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> zero(Int4x2), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> zero(x))
 
     @test iszero(zero(Int4x2)) isa Bool
     @test iszero(zero(Int4x2))
     @test rand(Int4x2) isa Int4x2
 
     # logical not
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, ~x), (xlo, xhi, ylo, yhi, x, y) -> (~xlo, ~xhi))
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, ~x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (~xlo, ~xhi),
+    )
 
     # arithmetic pos/negation
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, +x), (xlo, xhi, ylo, yhi, x, y) -> make_int4.((+xlo, +xhi)))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, -x), (xlo, xhi, ylo, yhi, x, y) -> make_int4.((-xlo, -xhi)))
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, +x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((+xlo, +xhi)),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, -x),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((-xlo, -xhi)),
+    )
 
     # logical operations
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x & y), (xlo, xhi, ylo, yhi, x, y) -> (xlo & ylo, xhi & yhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x | y), (xlo, xhi, ylo, yhi, x, y) -> (xlo | ylo, xhi | yhi))
-    compare((xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x ⊻ y), (xlo, xhi, ylo, yhi, x, y) -> (xlo ⊻ ylo, xhi ⊻ yhi))
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x & y),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo & ylo, xhi & yhi),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x | y),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo | ylo, xhi | yhi),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x ⊻ y),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> (xlo ⊻ ylo, xhi ⊻ yhi),
+    )
 
     # arithmetic operations
     compare(
-        (xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x + y),
-        (xlo, xhi, ylo, yhi, x, y) -> make_int4.((xlo + ylo, xhi + yhi)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x + y),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((xlo + ylo, xhi + yhi)),
     )
     compare(
-        (xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, x - y),
-        (xlo, xhi, ylo, yhi, x, y) -> make_int4.((xlo - ylo, xhi - yhi)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, x - y),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((xlo - ylo, xhi - yhi)),
     )
     compare(
-        (xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, min(x, y)),
-        (xlo, xhi, ylo, yhi, x, y) -> make_int4.((min(xlo, ylo), min(xhi, yhi))),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, min(x, y)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((min(xlo, ylo), min(xhi, yhi))),
     )
     compare(
-        (xlo, xhi, ylo, yhi, x, y) -> convert(NTuple{2,Int32}, max(x, y)),
-        (xlo, xhi, ylo, yhi, x, y) -> make_int4.((max(xlo, ylo), max(xhi, yhi))),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, max(x, y)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((max(xlo, ylo), max(xhi, yhi))),
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, clamp1(x, y, z)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((clamp1(xlo, ylo, zlo), clamp1(xhi, yhi, zhi))),
     )
 
     print("$(CR)$(EL)")
@@ -237,32 +297,38 @@ Random.seed!(0)
     n = Int4x8[]
     xs = NTuple{8,Int32}[]
     ys = NTuple{8,Int32}[]
+    zs = NTuple{8,Int32}[]
     x = Int4x8[]
     y = Int4x8[]
+    z = Int4x8[]
 
     for iter in 1:131072
         n1 = zero(Int4x8)
         xs1 = tuple(rand((-Int32(8)):(+Int32(7)), 8)...)
         ys1 = tuple(rand((-Int32(8)):(+Int32(7)), 8)...)
+        zs1 = tuple(rand((-Int32(8)):(+Int32(7)), 8)...)
         x1 = Int4x8(xs1...)
         y1 = Int4x8(ys1...)
+        z1 = Int4x8(zs1...)
 
         push!(n, n1)
         push!(xs, xs1)
         push!(ys, ys1)
+        push!(zs, zs1)
         push!(x, x1)
         push!(y, y1)
+        push!(z, z1)
     end
 
     function compare(fl, fr)
-        rcpul = run_on_cpu(fl, n, xs, ys, x, y)
-        rcpur = run_on_cpu(fr, n, xs, ys, x, y)
+        rcpul = run_on_cpu(fl, n, xs, ys, zs, x, y, z)
+        rcpur = run_on_cpu(fr, n, xs, ys, zs, x, y, z)
         @test rcpul == rcpur
         if CUDA.functional()
             rcudal = similar(rcpul)
             rcudar = similar(rcpur)
-            run_on_cuda!(fl, rcudal, n, xs, ys, x, y)
-            run_on_cuda!(fr, rcudar, n, xs, ys, x, y)
+            run_on_cuda!(fl, rcudal, n, xs, ys, zs, x, y, z)
+            run_on_cuda!(fr, rcudar, n, xs, ys, zs, x, y, z)
             @test rcudal == rcudar
             @test rcudal == rcpul
             @test rcudar == rcpur
@@ -272,86 +338,103 @@ Random.seed!(0)
         return nothing
     end
 
-    compare((n, xs, ys, x, y) -> Int4x8(xs), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(xs), (n, xs, ys, zs, x, y, z) -> x)
     compare(
-        (n, xs, ys, x, y) -> Int4x8((Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8]))),
-        (n, xs, ys, x, y) -> x,
+        (n, xs, ys, zs, x, y, z) -> Int4x8((Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8]))),
+        (n, xs, ys, zs, x, y, z) -> x,
     )
     compare(
-        (n, xs, ys, x, y) -> Int4x8((Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
-        (n, xs, ys, x, y) -> x,
+        (n, xs, ys, zs, x, y, z) ->
+            Int4x8((Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
+        (n, xs, ys, zs, x, y, z) -> x,
     )
 
-    compare((n, xs, ys, x, y) -> Int4x8(Int8.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int16.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int32.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int64.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int8.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int16.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int32.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int4x8(Int64.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int8}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int16}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int64}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int8.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int64.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int8.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int64.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int8}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int16}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int64}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{2,Int8x4}, x),
-        (n, xs, ys, x, y) -> (Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8])),
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int8x4}, x),
+        (n, xs, ys, zs, x, y, z) -> (Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8])),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{4,Int16x2}, x),
-        (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8])),
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int16x2}, x),
+        (n, xs, ys, zs, x, y, z) -> (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8])),
     )
 
     @test string.(x) == "Int4x8" .* string.(xs)
 
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0000000f)), (n, xs, ys, x, y) -> (xs[1], 0, 0, 0, 0, 0, 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0000000f)),
+        (n, xs, ys, zs, x, y, z) -> (xs[1], 0, 0, 0, 0, 0, 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x000000f0)), (n, xs, ys, x, y) -> (0, xs[2], 0, 0, 0, 0, 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x000000f0)),
+        (n, xs, ys, zs, x, y, z) -> (0, xs[2], 0, 0, 0, 0, 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x00000f00)), (n, xs, ys, x, y) -> (0, 0, xs[3], 0, 0, 0, 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x00000f00)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, xs[3], 0, 0, 0, 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0000f000)), (n, xs, ys, x, y) -> (0, 0, 0, xs[4], 0, 0, 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0000f000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, xs[4], 0, 0, 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x000f0000)), (n, xs, ys, x, y) -> (0, 0, 0, 0, xs[5], 0, 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x000f0000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, xs[5], 0, 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x00f00000)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, xs[6], 0, 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x00f00000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, xs[6], 0, 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0f000000)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, xs[7], 0)
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0x0f000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, xs[7], 0),
     )
     compare(
-        (n, xs, ys, x, y) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0xf0000000)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, xs[8])
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, Int4x8(x.val & 0xf0000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, xs[8]),
     )
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, 0))
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, x, y) -> (0, 0, 0, 0, 0, 0, 0, 0))
-    compare((n, xs, ys, x, y) -> zero(Int4x8), (n, xs, ys, x, y) -> zero(x))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0)
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, zero(Int4x8)), (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0)
+    )
+    compare((n, xs, ys, zs, x, y, z) -> zero(Int4x8), (n, xs, ys, zs, x, y, z) -> zero(x))
 
     @test iszero(zero(Int4x8)) isa Bool
     @test iszero(zero(Int4x8))
     @test rand(Int4x8) isa Int4x8
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, ~x), (n, xs, ys, zs, x, y, z) -> .~xs)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, +x), (n, xs, ys, x, y) -> make_int4.(.+xs))
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, -x), (n, xs, ys, x, y) -> make_int4.(.-xs))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, +x), (n, xs, ys, zs, x, y, z) -> make_int4.(.+xs))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, -x), (n, xs, ys, zs, x, y, z) -> make_int4.(.-xs))
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x & y), (n, xs, ys, x, y) -> xs .& ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x | y), (n, xs, ys, x, y) -> xs .| ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x ⊻ y), (n, xs, ys, x, y) -> xs .⊻ ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x & y), (n, xs, ys, zs, x, y, z) -> xs .& ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x | y), (n, xs, ys, zs, x, y, z) -> xs .| ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x ⊻ y), (n, xs, ys, zs, x, y, z) -> xs .⊻ ys)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x + y), (n, xs, ys, x, y) -> make_int4.(xs .+ ys))
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, x - y), (n, xs, ys, x, y) -> make_int4.(xs .- ys))
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, min(x, y)), (n, xs, ys, x, y) -> make_int4.(min.(xs, ys)))
-    compare((n, xs, ys, x, y) -> convert(NTuple{8,Int32}, max(x, y)), (n, xs, ys, x, y) -> make_int4.(max.(xs, ys)))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x + y), (n, xs, ys, zs, x, y, z) -> make_int4.(xs .+ ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x - y), (n, xs, ys, zs, x, y, z) -> make_int4.(xs .- ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> make_int4.(min.(xs, ys)))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> make_int4.(max.(xs, ys)))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, clamp1(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> make_int4.(clamp1.(xs, ys, zs)),
+    )
 
     print("$(CR)$(EL)")
     flush(stdout)
@@ -362,32 +445,38 @@ Random.seed!(0)
     n = Int8x4[]
     xs = NTuple{4,Int32}[]
     ys = NTuple{4,Int32}[]
+    zs = NTuple{4,Int32}[]
     x = Int8x4[]
     y = Int8x4[]
+    z = Int8x4[]
 
     for iter in 1:131072
         n1 = zero(Int8x4)
         xs1 = tuple(Int32.(rand(Int8, 4))...)
         ys1 = tuple(Int32.(rand(Int8, 4))...)
+        zs1 = tuple(Int32.(rand(Int8, 4))...)
         x1 = Int8x4(xs1...)
         y1 = Int8x4(ys1...)
+        z1 = Int8x4(zs1...)
 
         push!(n, n1)
         push!(xs, xs1)
         push!(ys, ys1)
+        push!(zs, zs1)
         push!(x, x1)
         push!(y, y1)
+        push!(z, z1)
     end
 
     function compare(fl, fr)
-        rcpul = run_on_cpu(fl, n, xs, ys, x, y)
-        rcpur = run_on_cpu(fr, n, xs, ys, x, y)
+        rcpul = run_on_cpu(fl, n, xs, ys, zs, x, y, z)
+        rcpur = run_on_cpu(fr, n, xs, ys, zs, x, y, z)
         @test rcpul == rcpur
         if CUDA.functional()
             rcudal = similar(rcpul)
             rcudar = similar(rcpur)
-            run_on_cuda!(fl, rcudal, n, xs, ys, x, y)
-            run_on_cuda!(fr, rcudar, n, xs, ys, x, y)
+            run_on_cuda!(fl, rcudal, n, xs, ys, zs, x, y, z)
+            run_on_cuda!(fr, rcudar, n, xs, ys, zs, x, y, z)
             @test rcudal == rcudar
             @test rcudal == rcpul
             @test rcudar == rcpur
@@ -397,49 +486,68 @@ Random.seed!(0)
         return nothing
     end
 
-    compare((n, xs, ys, x, y) -> Int8x4(xs), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4((Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4]))), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int8.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int16.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int32.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int64.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int8.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int16.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int32.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int8x4(Int64.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int8}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int16}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int64}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int16x2}, x), (n, xs, ys, x, y) -> (Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4])))
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(xs), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4((Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4]))), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int8.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int64.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int8.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int8x4(Int64.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int8}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int16}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int64}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int16x2}, x),
+        (n, xs, ys, zs, x, y, z) -> (Int16x2(xs[1], xs[3]), Int16x2(xs[2], xs[4])),
+    )
 
     @test string.(x) == "Int8x4" .* string.(xs)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x000000ff)), (n, xs, ys, x, y) -> (xs[1], 0, 0, 0))
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x0000ff00)), (n, xs, ys, x, y) -> (0, xs[2], 0, 0))
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x00ff0000)), (n, xs, ys, x, y) -> (0, 0, xs[3], 0))
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0xff000000)), (n, xs, ys, x, y) -> (0, 0, 0, xs[4]))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x000000ff)),
+        (n, xs, ys, zs, x, y, z) -> (xs[1], 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x0000ff00)),
+        (n, xs, ys, zs, x, y, z) -> (0, xs[2], 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0x00ff0000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, xs[3], 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, Int8x4(x.val & 0xff000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, xs[4]),
+    )
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, zero(Int8x4)), (n, xs, ys, x, y) -> (0, 0, 0, 0))
-    compare((n, xs, ys, x, y) -> zero(Int8x4), (n, xs, ys, x, y) -> zero(x))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, zero(Int8x4)), (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0))
+    compare((n, xs, ys, zs, x, y, z) -> zero(Int8x4), (n, xs, ys, zs, x, y, z) -> zero(x))
 
     @test iszero(zero(Int8x4)) isa Bool
     @test iszero(zero(Int8x4))
     @test rand(Int8x4) isa Int8x4
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, ~x), (n, xs, ys, zs, x, y, z) -> .~xs)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, +x), (n, xs, ys, x, y) -> .+xs .% Int8)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, -x), (n, xs, ys, x, y) -> .-xs .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, +x), (n, xs, ys, zs, x, y, z) -> .+xs .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, -x), (n, xs, ys, zs, x, y, z) -> .-xs .% Int8)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x & y), (n, xs, ys, x, y) -> xs .& ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x | y), (n, xs, ys, x, y) -> xs .| ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x ⊻ y), (n, xs, ys, x, y) -> xs .⊻ ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x & y), (n, xs, ys, zs, x, y, z) -> xs .& ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x | y), (n, xs, ys, zs, x, y, z) -> xs .| ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x ⊻ y), (n, xs, ys, zs, x, y, z) -> xs .⊻ ys)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x + y), (n, xs, ys, x, y) -> (xs .+ ys) .% Int8)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, x - y), (n, xs, ys, x, y) -> (xs .- ys) .% Int8)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, min(x, y)), (n, xs, ys, x, y) -> min.(xs, ys) .% Int8)
-    compare((n, xs, ys, x, y) -> convert(NTuple{4,Int32}, max(x, y)), (n, xs, ys, x, y) -> max.(xs, ys) .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x + y), (n, xs, ys, zs, x, y, z) -> (xs .+ ys) .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, x - y), (n, xs, ys, zs, x, y, z) -> (xs .- ys) .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> min.(xs, ys) .% Int8)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> max.(xs, ys) .% Int8)
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int32}, clamp1(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs) .% Int8,
+    )
 
     print("$(CR)$(EL)")
     flush(stdout)
@@ -450,32 +558,38 @@ Random.seed!(0)
     n = Int16x2[]
     xs = NTuple{2,Int32}[]
     ys = NTuple{2,Int32}[]
+    zs = NTuple{2,Int32}[]
     x = Int16x2[]
     y = Int16x2[]
+    z = Int16x2[]
 
     for iter in 1:131072
         n1 = zero(Int16x2)
         xs1 = tuple(Int32.(rand(Int16, 2))...)
         ys1 = tuple(Int32.(rand(Int16, 2))...)
+        zs1 = tuple(Int32.(rand(Int16, 2))...)
         x1 = Int16x2(xs1...)
         y1 = Int16x2(ys1...)
+        z1 = Int16x2(zs1...)
 
         push!(n, n1)
         push!(xs, xs1)
         push!(ys, ys1)
+        push!(zs, zs1)
         push!(x, x1)
         push!(y, y1)
+        push!(z, z1)
     end
 
     function compare(fl, fr)
-        rcpul = run_on_cpu(fl, n, xs, ys, x, y)
-        rcpur = run_on_cpu(fr, n, xs, ys, x, y)
+        rcpul = run_on_cpu(fl, n, xs, ys, zs, x, y, z)
+        rcpur = run_on_cpu(fr, n, xs, ys, zs, x, y, z)
         @test rcpul == rcpur
         if CUDA.functional()
             rcudal = similar(rcpul)
             rcudar = similar(rcpur)
-            run_on_cuda!(fl, rcudal, n, xs, ys, x, y)
-            run_on_cuda!(fr, rcudar, n, xs, ys, x, y)
+            run_on_cuda!(fl, rcudal, n, xs, ys, zs, x, y, z)
+            run_on_cuda!(fr, rcudar, n, xs, ys, zs, x, y, z)
             @test rcudal == rcudar
             @test rcudal == rcpul
             @test rcudar == rcpur
@@ -485,43 +599,51 @@ Random.seed!(0)
         return nothing
     end
 
-    compare((n, xs, ys, x, y) -> Int16x2(xs), (n, xs, ys, x, y) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(xs), (n, xs, ys, zs, x, y, z) -> x)
 
-    compare((n, xs, ys, x, y) -> Int16x2(Int16.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int16x2(Int32.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int16x2(Int64.(xs)...), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int16x2(Int16.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int16x2(Int32.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> Int16x2(Int64.(xs)), (n, xs, ys, x, y) -> x)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int16}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x), (n, xs, ys, x, y) -> xs)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int64}, x), (n, xs, ys, x, y) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int64.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int16x2(Int64.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int16}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int64}, x), (n, xs, ys, zs, x, y, z) -> xs)
 
     @test string.(x) == "Int16x2" .* string.(xs)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0x0000ffff)), (n, xs, ys, x, y) -> (xs[1], 0))
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0xffff0000)), (n, xs, ys, x, y) -> (0, xs[2]))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0x0000ffff)), (n, xs, ys, zs, x, y, z) -> (xs[1], 0)
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, Int16x2(x.val & 0xffff0000)), (n, xs, ys, zs, x, y, z) -> (0, xs[2])
+    )
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, zero(Int16x2)), (n, xs, ys, x, y) -> (0, 0))
-    compare((n, xs, ys, x, y) -> zero(Int16x2), (n, xs, ys, x, y) -> zero(x))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, zero(Int16x2)), (n, xs, ys, zs, x, y, z) -> (0, 0))
+    compare((n, xs, ys, zs, x, y, z) -> zero(Int16x2), (n, xs, ys, zs, x, y, z) -> zero(x))
 
     @test iszero(zero(Int16x2)) isa Bool
     @test iszero(zero(Int16x2))
     @test rand(Int16x2) isa Int16x2
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, ~x), (n, xs, ys, x, y) -> .~xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, ~x), (n, xs, ys, zs, x, y, z) -> .~xs)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, +x), (n, xs, ys, x, y) -> .+xs .% Int16)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, -x), (n, xs, ys, x, y) -> .-xs .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, +x), (n, xs, ys, zs, x, y, z) -> .+xs .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, -x), (n, xs, ys, zs, x, y, z) -> .-xs .% Int16)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x & y), (n, xs, ys, x, y) -> xs .& ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x | y), (n, xs, ys, x, y) -> xs .| ys)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x ⊻ y), (n, xs, ys, x, y) -> xs .⊻ ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x & y), (n, xs, ys, zs, x, y, z) -> xs .& ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x | y), (n, xs, ys, zs, x, y, z) -> xs .| ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x ⊻ y), (n, xs, ys, zs, x, y, z) -> xs .⊻ ys)
 
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x + y), (n, xs, ys, x, y) -> (xs .+ ys) .% Int16)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, x - y), (n, xs, ys, x, y) -> (xs .- ys) .% Int16)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, min(x, y)), (n, xs, ys, x, y) -> min.(xs, ys) .% Int16)
-    compare((n, xs, ys, x, y) -> convert(NTuple{2,Int32}, max(x, y)), (n, xs, ys, x, y) -> max.(xs, ys) .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x + y), (n, xs, ys, zs, x, y, z) -> (xs .+ ys) .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, x - y), (n, xs, ys, zs, x, y, z) -> (xs .- ys) .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> min.(xs, ys) .% Int16)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> max.(xs, ys) .% Int16)
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, clamp1(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs) .% Int16,
+    )
 
     print("$(CR)$(EL)")
     flush(stdout)
@@ -617,6 +739,11 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x + y), (n, xs, ys, zs, x, y, z) -> xs .+ ys; atol=eps(Float16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x - y), (n, xs, ys, zs, x, y, z) -> xs .- ys; atol=eps(Float16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x * y), (n, xs, ys, zs, x, y, z) -> xs .* ys; atol=eps(Float16))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> min.(xs, ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> max.(xs, ys))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, clamp1(x, y, z)), (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs)
+    )
     compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_mul(x, y)),
         (n, xs, ys, zs, x, y, z) -> tuple_complex_mul(xs, ys);
@@ -735,6 +862,11 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x + y), (n, xs, ys, zs, x, y, z) -> xs .+ ys; atol=eps(BFloat16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x - y), (n, xs, ys, zs, x, y, z) -> xs .- ys; atol=eps(BFloat16))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, x * y), (n, xs, ys, zs, x, y, z) -> xs .* ys; atol=eps(BFloat16))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> min.(xs, ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> max.(xs, ys))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, clamp1(x, y, z)), (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs)
+    )
     compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_mul(x, y)),
         (n, xs, ys, zs, x, y, z) -> tuple_complex_mul(xs, ys);
