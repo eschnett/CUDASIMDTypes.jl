@@ -1,7 +1,7 @@
 name = "CUDASIMDTypes"
 uuid = "ba1ee33b-8807-41fd-9812-6d5f2ce04139"
 authors = ["Erik Schnetter <schnetter@gmail.com>"]
-version = "1.5.0"
+version = "1.5.1"
 
 [deps]
 BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
@@ -13,4 +13,4 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 julia = "1.6"
 BFloat16s = "0.2.0, 0.3.0, 0.4.0"
 CUDA = "3.12.0, 4"
-LLVM = "4.14.0"
+LLVM = "4.14.0, 5, 6"
