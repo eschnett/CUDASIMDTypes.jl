@@ -537,6 +537,230 @@ Random.seed!(0)
 end
 
 Random.seed!(0)
+@testset "Int2x16" begin
+    n = Int2x16[]
+    xs = NTuple{16,Int32}[]
+    ys = NTuple{16,Int32}[]
+    zs = NTuple{16,Int32}[]
+    x = Int2x16[]
+    y = Int2x16[]
+    z = Int2x16[]
+
+    for iter in 1:131072
+        n1 = zero(Int2x16)
+        xs1 = tuple(rand((-Int32(2)):(+Int32(1)), 16)...)
+        ys1 = tuple(rand((-Int32(2)):(+Int32(1)), 16)...)
+        zs1 = tuple(rand((-Int32(2)):(+Int32(1)), 16)...)
+        x1 = Int2x16(xs1...)
+        y1 = Int2x16(ys1...)
+        z1 = Int2x16(zs1...)
+
+        push!(n, n1)
+        push!(xs, xs1)
+        push!(ys, ys1)
+        push!(zs, zs1)
+        push!(x, x1)
+        push!(y, y1)
+        push!(z, z1)
+    end
+
+    function compare(fl, fr)
+        rcpul = run_on_cpu(fl, n, xs, ys, zs, x, y, z)
+        rcpur = run_on_cpu(fr, n, xs, ys, zs, x, y, z)
+        @test rcpul == rcpur
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, n, xs, ys, zs, x, y, z)
+            run_on_cuda!(fr, rcudar, n, xs, ys, zs, x, y, z)
+            @test rcudal == rcudar
+            @test rcudal == rcpul
+            @test rcudar == rcpur
+        end
+        print(".")
+        flush(stdout)
+        return nothing
+    end
+
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(xs), (n, xs, ys, zs, x, y, z) -> x)
+    compare(
+        (n, xs, ys, zs, x, y, z) -> Int2x16((
+            Int4x8(xs[1], xs[3], xs[5], xs[7], xs[9], xs[11], xs[13], xs[15]),
+            Int4x8(xs[2], xs[4], xs[6], xs[8], xs[10], xs[12], xs[14], xs[16]),
+        )),
+        (n, xs, ys, zs, x, y, z) -> x,
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> Int2x16((
+            Int8x4(xs[1], xs[5], xs[9], xs[13]),
+            Int8x4(xs[2], xs[6], xs[10], xs[14]),
+            Int8x4(xs[3], xs[7], xs[11], xs[15]),
+            Int8x4(xs[4], xs[8], xs[12], xs[16]),
+        )),
+        (n, xs, ys, zs, x, y, z) -> x,
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> Int2x16((
+            Int16x2(xs[1], xs[9]),
+            Int16x2(xs[2], xs[10]),
+            Int16x2(xs[3], xs[11]),
+            Int16x2(xs[4], xs[12]),
+            Int16x2(xs[5], xs[13]),
+            Int16x2(xs[6], xs[14]),
+            Int16x2(xs[7], xs[15]),
+            Int16x2(xs[8], xs[16]),
+        )),
+        (n, xs, ys, zs, x, y, z) -> x,
+    )
+
+    # TODO: Conversions from/to Int2x4, Int4x2
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int8.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int32.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int64.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int8.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int16.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int32.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int2x16(Int64.(xs)), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int8}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int16}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x), (n, xs, ys, zs, x, y, z) -> xs)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int64}, x), (n, xs, ys, zs, x, y, z) -> xs)
+
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int4x8}, x),
+        (n, xs, ys, zs, x, y, z) -> (
+            Int4x8(xs[1], xs[3], xs[5], xs[7], xs[9], xs[11], xs[13], xs[15]),
+            Int4x8(xs[2], xs[4], xs[6], xs[8], xs[10], xs[12], xs[14], xs[16]),
+        ),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{4,Int8x4}, x),
+        (n, xs, ys, zs, x, y, z) -> (
+            Int8x4(xs[1], xs[5], xs[9], xs[13]),
+            Int8x4(xs[2], xs[6], xs[10], xs[14]),
+            Int8x4(xs[3], xs[7], xs[11], xs[15]),
+            Int8x4(xs[4], xs[8], xs[12], xs[16]),
+        ),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int16x2}, x),
+        (n, xs, ys, zs, x, y, z) -> (
+            Int16x2(xs[1], xs[9]),
+            Int16x2(xs[2], xs[10]),
+            Int16x2(xs[3], xs[11]),
+            Int16x2(xs[4], xs[12]),
+            Int16x2(xs[5], xs[13]),
+            Int16x2(xs[6], xs[14]),
+            Int16x2(xs[7], xs[15]),
+            Int16x2(xs[8], xs[16]),
+        ),
+    )
+
+    @test string.(x) == "Int2x16" .* string.(xs)
+
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00000003)),
+        (n, xs, ys, zs, x, y, z) -> (xs[1], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x0000000c)),
+        (n, xs, ys, zs, x, y, z) -> (0, xs[2], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00000030)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, xs[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x000000c0)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, xs[4], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00000300)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, xs[5], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00000c00)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, xs[6], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00003000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, xs[7], 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x0000c000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, xs[8], 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00030000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, xs[9], 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x000c0000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, xs[10], 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00300000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[11], 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x00c00000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[12], 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x03000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[13], 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x0c000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[14], 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0x30000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[15], 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, Int2x16(x.val & 0xc0000000)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, xs[16]),
+    )
+
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, zero(Int2x16)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, zero(Int2x16)),
+        (n, xs, ys, zs, x, y, z) -> (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
+    compare((n, xs, ys, zs, x, y, z) -> zero(Int2x16), (n, xs, ys, zs, x, y, z) -> zero(x))
+
+    @test iszero(zero(Int2x16)) isa Bool
+    @test iszero(zero(Int2x16))
+    @test rand(Int2x16) isa Int2x16
+
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, ~x), (n, xs, ys, zs, x, y, z) -> .~xs)
+
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, +x), (n, xs, ys, zs, x, y, z) -> make_int2.(.+xs))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, -x), (n, xs, ys, zs, x, y, z) -> make_int2.(.-xs))
+
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x & y), (n, xs, ys, zs, x, y, z) -> xs .& ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x | y), (n, xs, ys, zs, x, y, z) -> xs .| ys)
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x ⊻ y), (n, xs, ys, zs, x, y, z) -> xs .⊻ ys)
+
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x + y), (n, xs, ys, zs, x, y, z) -> make_int2.(xs .+ ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, x - y), (n, xs, ys, zs, x, y, z) -> make_int2.(xs .- ys))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, min(x, y)), (n, xs, ys, zs, x, y, z) -> make_int2.(min.(xs, ys)))
+    compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, max(x, y)), (n, xs, ys, zs, x, y, z) -> make_int2.(max.(xs, ys)))
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{16,Int32}, clamp1(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> make_int2.(clamp1.(xs, ys, zs)),
+    )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
+end
+
+Random.seed!(0)
 @testset "Int4x8" begin
     n = Int4x8[]
     xs = NTuple{8,Int32}[]
