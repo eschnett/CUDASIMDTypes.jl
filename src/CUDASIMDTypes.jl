@@ -81,6 +81,9 @@ function make_lop3_lut(f)
     return lut
 end
 
+# For integer bit width conversions below
+const xor_and_lut = make_lop3_lut((a, b, c) -> (a ⊻ b) & c)
+
 ################################################################################
 
 export bitifelse
@@ -154,6 +157,16 @@ end
 
 ################################################################################
 
+export Int2x4
+"""
+    struct Int2x4
+
+A SIMD type holding 4 2-bit integers in a combined 8-bit value.
+"""
+struct Int2x4
+    val::UInt8
+end
+
 export Int4x2
 """
     struct Int4x2
@@ -196,12 +209,67 @@ end
 
 ################################################################################
 
+function Int2x4(a1::Int8, a2::Int8, a3::Int8, a4::Int8)
+    return Int2x4((a1 << 0x00) & 0x03 | (a2 << 0x02) & 0x0c | (a3 << 0x04) & 0x30 | (a4 << 0x06) & 0xc0)
+end
+Int2x4(a1::Integer, a2::Integer, a3::Integer, a4::Integer) = Int2x4(a1 % Int8, a2 % Int8, a3 % Int8, a4 % Int8)
+Int2x4(a::NTuple{4,<:Integer}) = Int2x4(a...)
+Int2x4(a::Int8x4) = Int2x4(convert(NTuple{4,Int8}, a))
+
+function Base.convert(::Type{NTuple{4,Int8}}, a::Int2x4)
+    a1 = a.val ⊻ 0b10101010     # a + 2
+    a2_0 = (a1 >>> 0x00) & 0b11 # extract individual numbers
+    a2_1 = (a1 >>> 0x02) & 0b11
+    a2_2 = (a1 >>> 0x04) & 0b11
+    a2_3 = (a1 >>> 0x06) & 0b11
+    a3_0 = a2_0 + 0b01111110    # a + 128
+    a3_1 = a2_1 + 0b01111110
+    a3_2 = a2_2 + 0b01111110
+    a3_3 = a2_3 + 0b01111110
+    a4_0 = a3_0 ⊻ 0x80          # a
+    a4_1 = a3_1 ⊻ 0x80
+    a4_2 = a3_2 ⊻ 0x80
+    a4_3 = a3_3 ⊻ 0x80
+    return (a4_0 % Int8, a4_1 % Int8, a4_2 % Int8, a4_3 % Int8)::NTuple{4,Int8}
+end
+function Base.convert(::Type{NTuple{4,I}}, a::Int2x4) where {I<:Integer}
+    a8_0, a8_1, a8_2, a8_3 = convert(NTuple{4,Int8}, a)
+    a_0 = convert(I, a8_0)
+    a_1 = convert(I, a8_1)
+    a_2 = convert(I, a8_2)
+    a_3 = convert(I, a8_3)
+    return (a_0, a_1, a_2, a_3)::NTuple{4,I}
+end
+
+Base.show(io::IO, a::Int2x4) = print(io, "Int2x4", convert(NTuple{4,Int32}, a))
+
+Base.length(::Int2x4) = 1
+
+Base.zero(::Type{Int2x4}) = Int2x4(UInt8(0))
+Base.zero(::Int2x4) = zero(Int2x4)
+Base.iszero(a::Int2x4) = a == zero(a)
+Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int2x4}) = Int2x4(rand(rng, UInt8))
+
+Base.:~(a::Int2x4) = Int2x4(~a.val)
+Base.:&(a::Int2x4, b::Int2x4) = Int2x4(a.val & b.val)
+Base.:|(a::Int2x4, b::Int2x4) = Int2x4(a.val | b.val)
+Base.xor(a::Int2x4, b::Int2x4) = Int2x4(a.val ⊻ b.val)
+
+Base.:+(a::Int2x4) = a
+Base.:-(a::Int2x4) = Int2x4(.-convert(NTuple{4,Int8}, a))
+Base.:+(a::Int2x4, b::Int2x4) = Int2x4(convert(NTuple{4,Int8}, a) .+ convert(NTuple{4,Int8}, b))
+Base.:-(a::Int2x4, b::Int2x4) = Int2x4(convert(NTuple{4,Int8}, a) .- convert(NTuple{4,Int8}, b))
+Base.min(a::Int2x4, b::Int2x4) = Int2x4(min.(convert(NTuple{4,Int8}, a), convert(NTuple{4,Int8}, b)))
+Base.max(a::Int2x4, b::Int2x4) = Int2x4(max.(convert(NTuple{4,Int8}, a), convert(NTuple{4,Int8}, b)))
+Base.clamp(a::Int2x4, alo::Int2x4, ahi::Int2x4) = min(max(a, alo), ahi)
+
+################################################################################
+
 Int4x2(a1::Int8, a2::Int8) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
 Int4x2(a1::Integer, a2::Integer) = Int4x2(a1 % Int8, a2 % Int8)
 Int4x2(a::NTuple{2,<:Integer}) = Int4x2(a...)
 Int4x2(a::Int16x2) = Int4x2(convert(NTuple{2,Int16}, a))
 
-const xor_and_lut = make_lop3_lut((a, b, c) -> (a ⊻ b) & c)
 function Base.convert(::Type{NTuple{2,Int8}}, a::Int4x2)
     # a1 = a.val ⊻ 0x88                  # a + 8
     # a2_lo = a1 & 0x0f                  # extract low part
@@ -218,14 +286,14 @@ function Base.convert(::Type{NTuple{2,I}}, a::Int4x2) where {I<:Integer}
     alo8, ahi8 = convert(NTuple{2,Int8}, a)
     alo = convert(I, alo8)
     ahi = convert(I, ahi8)
-    return (alo, ahi)
+    return (alo, ahi)::NTuple{2,I}
 end
 
 Base.show(io::IO, a::Int4x2) = print(io, "Int4x2", convert(NTuple{2,Int32}, a))
 
 Base.length(::Int4x2) = 1
 
-Base.zero(::Type{Int4x2}) = Int4x2(Int8(0))
+Base.zero(::Type{Int4x2}) = Int4x2(UInt8(0))
 Base.zero(::Int4x2) = zero(Int4x2)
 Base.iszero(a::Int4x2) = a == zero(a)
 Random.rand(rng::AbstractRNG, ::Random.SamplerType{Int4x2}) = Int4x2(rand(rng, UInt8))
@@ -276,6 +344,7 @@ end
 Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
 Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
+Int8x4(a::Int2x4) = Int8x4(convert(NTuple{4,Int8}, a))
 
 function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     # a1 = a.val ⊻ 0x88888888            # a + 8

@@ -11,6 +11,7 @@ const ESC = "\e"
 const CSI = "$(ESC)["
 const EL = "$(CSI)K"
 
+make_int2(x::Integer) = ((x + 2) & 0x3 - 2) % Int8
 make_int4(x::Integer) = ((x + 8) & 0xf - 8) % Int8
 
 tuple2complex(ab::NTuple{2}) = Complex(ab[1], ab[2])
@@ -113,6 +114,249 @@ Random.seed!(0)
         run_on_cuda!(bitifelse, r2, cond, x, y)
         @test r2 == r1
     end
+end
+
+Random.seed!(0)
+@testset "Int2x4" begin
+    # Test exhaustively for x and y
+    x1 = Int32[]
+    x2 = Int32[]
+    x3 = Int32[]
+    x4 = Int32[]
+    y1 = Int32[]
+    y2 = Int32[]
+    y3 = Int32[]
+    y4 = Int32[]
+    z1 = Int32[]
+    z2 = Int32[]
+    z3 = Int32[]
+    z4 = Int32[]
+    x = Int2x4[]
+    y = Int2x4[]
+    z = Int2x4[]
+
+    for x01 in (-Int32(2)):(+Int32(1)),
+        x02 in (-Int32(2)):(+Int32(1)),
+        x03 in (-Int32(2)):(+Int32(1)),
+        x04 in (-Int32(2)):(+Int32(1)),
+        y01 in (-Int32(2)):(+Int32(1)),
+        y02 in (-Int32(2)):(+Int32(1)),
+        y03 in (-Int32(2)):(+Int32(1)),
+        y04 in (-Int32(2)):(+Int32(1))
+
+        z01 = rand((-Int32(2)):(+Int32(1)))
+        z02 = rand((-Int32(2)):(+Int32(1)))
+        z03 = rand((-Int32(2)):(+Int32(1)))
+        z04 = rand((-Int32(2)):(+Int32(1)))
+
+        push!(x1, x01)
+        push!(x2, x02)
+        push!(x3, x03)
+        push!(x4, x04)
+        push!(y1, y01)
+        push!(y2, y02)
+        push!(y3, y03)
+        push!(y4, y04)
+        push!(z1, z01)
+        push!(z2, z02)
+        push!(z3, z03)
+        push!(z4, z04)
+        push!(x, Int2x4(x01, x02, x03, x04))
+        push!(y, Int2x4(y01, y02, y03, y04))
+        push!(z, Int2x4(z01, z02, z03, z04))
+    end
+
+    function compare(fl, fr)
+        rcpul = run_on_cpu(fl, x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z)
+        rcpur = run_on_cpu(fr, x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z)
+        @test rcpul == rcpur
+        @assert rcpul == rcpur
+        if CUDA.functional()
+            rcudal = similar(rcpul)
+            rcudar = similar(rcpur)
+            run_on_cuda!(fl, rcudal, x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z)
+            run_on_cuda!(fr, rcudar, x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z)
+            @test rcudal == rcudar
+            @test rcudal == rcpul
+            @test rcudar == rcpur
+        end
+        print(".")
+        flush(stdout)
+        return nothing
+    end
+
+    # Test constructors
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4((Int8(x1), Int8(x2), Int8(x3), Int8(x4))),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4((Int16(x1), Int16(x2), Int16(x3), Int16(x4))),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4((Int32(x1), Int32(x2), Int32(x3), Int32(x4))),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4((Int64(x1), Int64(x2), Int64(x3), Int64(x4))),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int8}, x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, x2, x3, x4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int16}, x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, x2, x3, x4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, x2, x3, x4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int64}, x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, x2, x3, x4),
+    )
+
+    #CONT
+
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int8(x1), Int8(x2), Int8(x3), Int8(x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int16(x1), Int16(x2), Int16(x3), Int16(x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int32(x1), Int32(x2), Int32(x3), Int32(x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int64(x1), Int64(x2), Int64(x3), Int64(x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int8x4(x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int8x4(x1, x2, x3, x4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int8x4(x1, x2, x3, x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
+    )
+
+    # Test output
+    @test string.(x) == "Int2x4" .* string.(tuple.(x1, x2, x3, x4))
+
+    # Test half-nibble ordering
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4((x1 & 0x03) << 0x00)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, 0, 0, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4((x2 & 0x03) << 0x02)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, x2, 0, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4((x3 & 0x03) << 0x04)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, 0, x3, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4((x4 & 0x03) << 0x06)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, 0, 0, x4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4(x.val & 0x03)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, 0, 0, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4(x.val & 0x0c)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, x2, 0, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4(x.val & 0x30)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, 0, x3, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, Int2x4(x.val & 0xc0)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, 0, 0, x4),
+    )
+
+    # zero
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, zero(Int2x4)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (0, 0, 0, 0),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> zero(Int2x4),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> zero(x),
+    )
+
+    @test iszero(zero(Int2x4)) isa Bool
+    @test iszero(zero(Int2x4))
+    @test rand(Int2x4) isa Int2x4
+
+    #CONT
+
+    # logical not
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, ~x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (~x1, ~x2, ~x3, ~x4),
+    )
+
+    # arithmetic pos/negation
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, +x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> make_int2.((+x1, +x2, +x3, +x4)),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, -x),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> make_int2.((-x1, -x2, -x3, -x4)),
+    )
+
+    # logical operations
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x & y),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1 & y1, x2 & y2, x3 & y3, x4 & y4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x | y),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1 | y1, x2 | y2, x3 | y3, x4 | y4),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x ⊻ y),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1 ⊻ y1, x2 ⊻ y2, x3 ⊻ y3, x4 ⊻ y4),
+    )
+
+    # arithmetic operations
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x + y),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> make_int2.((x1 + y1, x2 + y2, x3 + y3, x4 + y4)),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, x - y),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> make_int2.((x1 - y1, x2 - y2, x3 - y3, x4 - y4)),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, min(x, y)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) ->
+            make_int2.((min(x1, y1), min(x2, y2), min(x3, y3), min(x4, y4))),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, max(x, y)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) ->
+            make_int2.((max(x1, y1), max(x2, y2), max(x3, y3), max(x4, y4))),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, clamp1(x, y, z)),
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) ->
+            make_int2.((clamp1(x1, y1, z1), clamp1(x2, y2, z2), clamp1(x3, y3, z3), clamp1(x4, y4, z4))),
+    )
+
+    print("$(CR)$(EL)")
+    flush(stdout)
 end
 
 Random.seed!(0)
