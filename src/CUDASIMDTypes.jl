@@ -273,6 +273,8 @@ Base.min(a::Int2x4, b::Int2x4) = Int2x4(min.(convert(NTuple{4,Int8}, a), convert
 Base.max(a::Int2x4, b::Int2x4) = Int2x4(max.(convert(NTuple{4,Int8}, a), convert(NTuple{4,Int8}, b)))
 Base.clamp(a::Int2x4, alo::Int2x4, ahi::Int2x4) = min(max(a, alo), ahi)
 
+Base.:(==)(a::Int2x4, b::Int2x4) = a.val == b.val
+
 ################################################################################
 
 Int4x2(a1::Int8, a2::Int8) = Int4x2((a1 << 0x00) & 0x0f | (a2 << 0x04) & 0xf0)
@@ -342,6 +344,8 @@ function Base.max(a::Int4x2, b::Int4x2)
     return Int4x2(rs...)
 end
 Base.clamp(a::Int4x2, alo::Int4x2, ahi::Int4x2) = min(max(a, alo), ahi)
+
+Base.:(==)(a::Int4x2, b::Int4x2) = a.val == b.val
 
 ################################################################################
 
@@ -511,6 +515,8 @@ function Base.max(a::Int2x16, b::Int2x16)
 end
 Base.clamp(a::Int2x16, alo::Int2x16, ahi::Int2x16) = min(max(a, alo), ahi)
 
+Base.:(==)(a::Int2x16, b::Int2x16) = a.val == b.val
+
 ################################################################################
 
 function Int4x8(a1::Int8, a2::Int8, a3::Int8, a4::Int8, a5::Int8, a6::Int8, a7::Int8, a8::Int8)
@@ -605,6 +611,8 @@ function Base.max(a::Int4x8, b::Int4x8)
     return Int4x8(rs...)
 end
 Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8) = min(max(a, alo), ahi)
+
+Base.:(==)(a::Int4x8, b::Int4x8) = a.val == b.val
 
 ################################################################################
 
@@ -711,6 +719,8 @@ function Base.max(a::Int8x4, b::Int8x4)
 end
 Base.clamp(a::Int8x4, alo::Int8x4, ahi::Int8x4) = min(max(a, alo), ahi)
 
+Base.:(==)(a::Int8x4, b::Int8x4) = a.val == b.val
+
 ################################################################################
 
 Int16x2(a1::Int16, a2::Int16) = Int16x2((a1 % UInt16 % UInt32) << 0x00 | (a2 % UInt16 % UInt32) << 0x10)
@@ -782,6 +792,8 @@ function Base.max(a::Int16x2, b::Int16x2)
     return Int16x2(rs...)
 end
 Base.clamp(a::Int16x2, alo::Int16x2, ahi::Int16x2) = min(max(a, alo), ahi)
+
+Base.:(==)(a::Int16x2, b::Int16x2) = a.val == b.val
 
 ################################################################################
 
@@ -1081,6 +1093,8 @@ CUDA.@device_override function swapped_complex_muladd(a::Float16x2, b::Float16x2
     )
 end
 
+Base.:(==)(a::Float16x2, b::Float16x2) = a.val == b.val
+
 ################################################################################
 
 function BFloat16x2(a1::BFloat16, a2::BFloat16)
@@ -1297,6 +1311,8 @@ CUDA.@device_override function complex_muladd(a::BFloat16x2, b::BFloat16x2, c::B
 end
 export swapped_complex_muladd
 swapped_complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
+
+Base.:(==)(a::BFloat16x2, b::BFloat16x2) = a.val == b.val
 
 ################################################################################
 

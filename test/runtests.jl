@@ -219,8 +219,6 @@ Random.seed!(0)
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> (x1, x2, x3, x4),
     )
 
-    #CONT
-
     compare(
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> Int2x4(Int8(x1), Int8(x2), Int8(x3), Int8(x4)),
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x,
@@ -298,8 +296,6 @@ Random.seed!(0)
     @test iszero(zero(Int2x4))
     @test rand(Int2x4) isa Int2x4
 
-    #CONT
-
     # logical not
     compare(
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, ~x),
@@ -353,6 +349,16 @@ Random.seed!(0)
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> convert(NTuple{4,Int32}, clamp1(x, y, z)),
         (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) ->
             make_int2.((clamp1(x1, y1, z1), clamp1(x2, y2, z2), clamp1(x3, y3, z3), clamp1(x4, y4, z4))),
+    )
+
+    # comparisons
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x == y,
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> all((x1, x2, x3, x4) .== (y1, y2, y3, y4)),
+    )
+    compare(
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> x != y,
+        (x1, x2, x3, x4, y1, y2, y3, y4, z1, z2, z3, z4, x, y, z) -> any((x1, x2, x3, x4) .!= (y1, y2, y3, y4)),
     )
 
     print("$(CR)$(EL)")
@@ -530,6 +536,14 @@ Random.seed!(0)
     compare(
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, clamp1(x, y, z)),
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((clamp1(xlo, ylo, zlo), clamp1(xhi, yhi, zhi))),
+    )
+
+    # comparisons
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x == y, (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> all((xlo, xhi) .== (ylo, yhi))
+    )
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x != y, (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any((xlo, xhi) .!= (ylo, yhi))
     )
 
     print("$(CR)$(EL)")
@@ -756,6 +770,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> make_int2.(clamp1.(xs, ys, zs)),
     )
 
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
+
     print("$(CR)$(EL)")
     flush(stdout)
 end
@@ -904,6 +921,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> make_int4.(clamp1.(xs, ys, zs)),
     )
 
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
+
     print("$(CR)$(EL)")
     flush(stdout)
 end
@@ -1017,6 +1037,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs) .% Int8,
     )
 
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
+
     print("$(CR)$(EL)")
     flush(stdout)
 end
@@ -1112,6 +1135,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Int32}, clamp1(x, y, z)),
         (n, xs, ys, zs, x, y, z) -> clamp1.(xs, ys, zs) .% Int16,
     )
+
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
 
     print("$(CR)$(EL)")
     flush(stdout)
@@ -1238,6 +1264,9 @@ Random.seed!(0)
         atol=3 * eps(Float16),
     )
 
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .=== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!== ys))
+
     print("$(CR)$(EL)")
     flush(stdout)
 end
@@ -1360,6 +1389,9 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> tuple_swapped_complex_muladd(xs, ys, zs);
         atol=3 * eps(BFloat16),
     )
+
+    compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .=== ys))
+    compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!== ys))
 
     print("$(CR)$(EL)")
     flush(stdout)
