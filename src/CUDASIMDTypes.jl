@@ -1380,13 +1380,7 @@ end
 
 Int8x4(a::NTuple{2,Float16x2}) = Int8x4(Int16x2.(a))
 CUDA.@device_override function Int8x4(a::NTuple{2,Float16x2})
-    # offset = Float16x2(0x400, 0x400)
-    # alo, ahi = a
-    # blo = alo + (offset + Float16x2(0x80, 0x80))
-    # bhi = ahi + (offset + Float16x2(0x80, 0x80))
-    # b = prmt(blo.val, bhi.val, 0x6240)
-    # return Int8x4(b ⊻ 0x80808080)
-    offset = Float16x2(0x600, 0x600)
+    offset = Float16x2(1536, 1536)
     alo, ahi = a
     blo = alo + offset
     bhi = ahi + offset
@@ -1401,7 +1395,7 @@ Float16x2(a::Int4x2) = Float16x2(Int16x2(a))
 Int4x2(a::Float16x2) = Int4x2(Int16x2(a))
 
 @inline function Base.convert(::Type{NTuple{4,Float16x2}}, a::Int4x8)
-    # Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+    # Note: `Float16(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
     offset = Float16x2(1536, 1536)
     a1, a2, a3, a4 = convert(NTuple{4,Int16x2}, a)
     b1 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a1) - offset
@@ -1423,15 +1417,24 @@ end
 
 Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
 CUDA.@device_override @inline function Int4x8(a::NTuple{4,Float16x2})
-    offset = Float16x2(0x0400, 0x0400)
+    # offset = Float16x2(0x0400, 0x0400)
+    # a1, a2, a3, a4 = a
+    # b1 = a1 + (offset + Float16x2(0x8, 0x8))
+    # b2 = a2 + (offset + Float16x2(0x8, 0x8))
+    # b3 = a3 + (offset + Float16x2(0x8, 0x8))
+    # b4 = a4 + (offset + Float16x2(0x8, 0x8))
+    # b13 = prmt(b1.val, b3.val, 0x6240)
+    # b24 = prmt(b2.val, b4.val, 0x6240)
+    # return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04) ⊻ 0x88888888)
+    offset = Float16x2(1536, 1536)
     a1, a2, a3, a4 = a
-    b1 = a1 + (offset + Float16x2(0x8, 0x8))
-    b2 = a2 + (offset + Float16x2(0x8, 0x8))
-    b3 = a3 + (offset + Float16x2(0x8, 0x8))
-    b4 = a4 + (offset + Float16x2(0x8, 0x8))
+    b1 = a1 + offset
+    b2 = a2 + offset
+    b3 = a3 + offset
+    b4 = a4 + offset
     b13 = prmt(b1.val, b3.val, 0x6240)
     b24 = prmt(b2.val, b4.val, 0x6240)
-    return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04) ⊻ 0x88888888)
+    return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04))
 end
 
 ################################################################################
