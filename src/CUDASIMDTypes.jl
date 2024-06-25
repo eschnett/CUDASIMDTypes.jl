@@ -1329,8 +1329,8 @@ Base.reinterpret(::Type{T}, a::Types32bit) where {T<:Types32bit} = T(a.val)
 
 ################################################################################
 
-# Note: `Float(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
-# Note: `Float(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+# Note: `Float16(1024 + i)` has the bit pattern for `i` in the lowermost bits. This works for 0 ≤ i < 1024.
+# Note: `Float16(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
 
 # From/to Int16
 
@@ -1380,12 +1380,18 @@ end
 
 Int8x4(a::NTuple{2,Float16x2}) = Int8x4(Int16x2.(a))
 CUDA.@device_override function Int8x4(a::NTuple{2,Float16x2})
-    offset = Float16x2(0x400, 0x400)
+    # offset = Float16x2(0x400, 0x400)
+    # alo, ahi = a
+    # blo = alo + (offset + Float16x2(0x80, 0x80))
+    # bhi = ahi + (offset + Float16x2(0x80, 0x80))
+    # b = prmt(blo.val, bhi.val, 0x6240)
+    # return Int8x4(b ⊻ 0x80808080)
+    offset = Float16x2(0x600, 0x600)
     alo, ahi = a
-    blo = alo + (offset + Float16x2(0x80, 0x80))
-    bhi = ahi + (offset + Float16x2(0x80, 0x80))
+    blo = alo + offset
+    bhi = ahi + offset
     b = prmt(blo.val, bhi.val, 0x6240)
-    return Int8x4(b ⊻ 0x80808080)
+    return Int8x4(b)
 end
 
 # From/to Int4
