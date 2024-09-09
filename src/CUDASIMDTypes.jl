@@ -1451,7 +1451,8 @@ CUDA.@device_override @inline function convert_swapped_withoffset(::Type{NTuple{
     b2 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x00, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
     b3 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x08, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
     b4 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x08, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
-    return (b1, b2, b3, b4)
+    c1, c2, c3, c4 = b2, b1, b4, b3 # swap
+    return (c1, c2, c3, c4)
 end
 
 Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
