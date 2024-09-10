@@ -847,6 +847,26 @@ Random.seed!(0)
             Int4x8((Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
         (n, xs, ys, zs, x, y, z) -> x,
     )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(Int4x8, (Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8]))),
+        (n, xs, ys, zs, x, y, z) -> x,
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) ->
+            convert(Int4x8, (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
+        (n, xs, ys, zs, x, y, z) -> x,
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) ->
+            convert_swapped_withoffset(Int4x8, (Int8x4(xs[2], xs[4], xs[6], xs[8]), Int8x4(xs[1], xs[3], xs[5], xs[7]))),
+        (n, xs, ys, zs, x, y, z) -> x ⊻ Int4x8(0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert_swapped_withoffset(
+            Int4x8, (Int16x2(xs[2], xs[6]), Int16x2(xs[1], xs[5]), Int16x2(xs[4], xs[8]), Int16x2(xs[3], xs[7]))
+        ),
+        (n, xs, ys, zs, x, y, z) -> x ⊻ Int4x8(0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8),
+    )
 
     compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int8.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
     compare((n, xs, ys, zs, x, y, z) -> Int4x8(Int16.(xs)...), (n, xs, ys, zs, x, y, z) -> x)
@@ -1672,6 +1692,17 @@ Random.seed!(0)
             dec(Float16x2(xs[4], xs[8])),
         )),
         (xs, x) -> x,
+    )
+    compare(
+        (xs, x) ->
+            convert(Int4x8, (Float16x2(xs[1], xs[5]), Float16x2(xs[2], xs[6]), Float16x2(xs[3], xs[7]), Float16x2(xs[4], xs[8]))),
+        (xs, x) -> x,
+    )
+    compare(
+        (xs, x) -> convert_swapped_withoffset(
+            Int4x8, (Float16x2(xs[2], xs[6]), Float16x2(xs[1], xs[5]), Float16x2(xs[4], xs[8]), Float16x2(xs[3], xs[7]))
+        ),
+        (xs, x) -> x ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8),
     )
 
     print("$(CR)$(EL)")

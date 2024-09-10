@@ -529,7 +529,16 @@ Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
 Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
-function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8; swapped_withoffset::Bool=false)
+Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
+function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{2,Int8x4})
+    return Int4x8(bitifelse(0x0f0f0f0f, a[2].val << 0x00, a[1].val << 0x04)) ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)
+end
+Base.convert(::Type{Int4x8}, a::NTuple{4,Int16x2}) = convert(Int4x8, (Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
+function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{4,Int16x2})
+    return convert_swapped_withoffset(Int4x8, (Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
+end
+
+function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     # a1 = a.val ⊻ 0x88888888            # a + 8
     # a2_lo = a1 & 0x0f0f0f0f            # extract low part
     a2_lo = lop3(a.val, 0x08080808, 0x0f0f0f0f, xor_and_lut)
@@ -1455,8 +1464,11 @@ CUDA.@device_override @inline function convert_swapped_withoffset(::Type{NTuple{
     return (c1, c2, c3, c4)
 end
 
-Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
-CUDA.@device_override @inline function Int4x8(a::NTuple{4,Float16x2})
+# For backward compatibility
+Int4x8(a::NTuple{4,Float16x2}) = convert(Int4x8, a)
+
+Base.convert(::Type{Int4x8}, a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
+CUDA.@device_override @inline function Base.convert(::Type{Int4x8}, a::NTuple{4,Float16x2})
     # offset = Float16x2(0x0400, 0x0400)
     # a1, a2, a3, a4 = a
     # b1 = a1 + (offset + Float16x2(0x8, 0x8))
@@ -1475,6 +1487,31 @@ CUDA.@device_override @inline function Int4x8(a::NTuple{4,Float16x2})
     b13 = prmt(b1.val, b3.val, 0x6240)
     b24 = prmt(b2.val, b4.val, 0x6240)
     return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04))
+end
+
+convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{4,Float16x2}) = convert_swapped_withoffset(Int4x8, Int16x2.(a))
+CUDA.@device_override @inline function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{4,Float16x2})
+    # offset = Float16x2(0x0400, 0x0400)
+    # a1, a2, a3, a4 = a
+    # b1 = a1 + (offset + Float16x2(0x8, 0x8))
+    # b2 = a2 + (offset + Float16x2(0x8, 0x8))
+    # b3 = a3 + (offset + Float16x2(0x8, 0x8))
+    # b4 = a4 + (offset + Float16x2(0x8, 0x8))
+    # b13 = prmt(b1.val, b3.val, 0x6240)
+    # b24 = prmt(b2.val, b4.val, 0x6240)
+    # return Int4x8(bitifelse(0x0f0f0f0f, b13 << 0x00, b24 << 0x04) ⊻ 0x88888888)
+    offset = Float16x2(1536, 1536)
+    a1, a2, a3, a4 = a
+    b1 = a1 + offset
+    b2 = a2 + offset
+    b3 = a3 + offset
+    b4 = a4 + offset
+    b13 = prmt(b1.val, b3.val, 0x6240)
+    b24 = prmt(b2.val, b4.val, 0x6240)
+    c13, c24 = b24, b13         # swap
+    c = Int4x8(bitifelse(0x0f0f0f0f, c13 << 0x00, c24 << 0x04))
+    d = c ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8) # add offset
+    return d
 end
 
 ################################################################################
