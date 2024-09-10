@@ -1,7 +1,7 @@
 name = "CUDASIMDTypes"
 uuid = "ba1ee33b-8807-41fd-9812-6d5f2ce04139"
 authors = ["Erik Schnetter <schnetter@gmail.com>"]
-version = "1.8.0"
+version = "1.9.0"
 
 [deps]
 BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
