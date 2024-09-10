@@ -870,6 +870,15 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> (Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8])),
     )
 
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert_swapped_withoffset(NTuple{2,Int8x4}, x ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)),
+        (n, xs, ys, zs, x, y, z) -> (Int8x4(xs[2], xs[4], xs[6], xs[8]), Int8x4(xs[1], xs[3], xs[5], xs[7])),
+    )
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert_swapped_withoffset(NTuple{4,Int16x2}, x ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)),
+        (n, xs, ys, zs, x, y, z) -> (Int16x2(xs[2], xs[6]), Int16x2(xs[1], xs[5]), Int16x2(xs[4], xs[8]), Int16x2(xs[3], xs[7])),
+    )
+
     @test string.(x) == "Int4x8" .* string.(xs)
 
     compare(
@@ -1637,6 +1646,10 @@ Random.seed!(0)
     compare(
         (xs, x) -> convert(NTuple{4,Float16x2}, x),
         (xs, x) -> (Float16x2(xs[1], xs[5]), Float16x2(xs[2], xs[6]), Float16x2(xs[3], xs[7]), Float16x2(xs[4], xs[8])),
+    )
+    compare(
+        (xs, x) -> convert_swapped_withoffset(NTuple{4,Float16x2}, x ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)),
+        (xs, x) -> (Float16x2(xs[2], xs[6]), Float16x2(xs[1], xs[5]), Float16x2(xs[4], xs[8]), Float16x2(xs[3], xs[7])),
     )
     compare(
         (xs, x) -> Int4x8((Float16x2(xs[1], xs[5]), Float16x2(xs[2], xs[6]), Float16x2(xs[3], xs[7]), Float16x2(xs[4], xs[8]))),

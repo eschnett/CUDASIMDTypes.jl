@@ -529,7 +529,7 @@ Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
 Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
-function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
+function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8; swapped_withoffset::Bool=false)
     # a1 = a.val ⊻ 0x88888888            # a + 8
     # a2_lo = a1 & 0x0f0f0f0f            # extract low part
     a2_lo = lop3(a.val, 0x08080808, 0x0f0f0f0f, xor_and_lut)
@@ -541,8 +541,26 @@ function Base.convert(::Type{NTuple{2,Int8x4}}, a::Int4x8)
     a4_hi = a3_hi ⊻ 0x80808080         # a
     return (Int8x4(a4_lo), Int8x4(a4_hi))::NTuple{2,Int8x4}
 end
+export convert_swapped_withoffset
+function convert_swapped_withoffset(::Type{NTuple{2,Int8x4}}, a::Int4x8)
+    a1 = a.val                # a + 8, implicit in the offset encoding
+    a2_lo = a1 & 0x0f0f0f0f   # extract low part
+    a3_lo = a2_lo + 0x78787878         # a + 128
+    a4_lo = a3_lo ⊻ 0x80808080         # a
+    a2_hi = (a1 >>> 0x04) & 0x0f0f0f0f # extract high part
+    a3_hi = a2_hi + 0x78787878         # a + 128
+    a4_hi = a3_hi ⊻ 0x80808080         # a
+    a5_lo, a5_hi = a4_hi, a4_lo        # swap low and high parts
+    return (Int8x4(a5_lo), Int8x4(a5_hi))::NTuple{2,Int8x4}
+end
 function Base.convert(::Type{NTuple{4,Int16x2}}, a::Int4x8)
     alo, ahi = convert(NTuple{2,Int8x4}, a)
+    alolo, alohi = convert(NTuple{2,Int16x2}, alo)
+    ahilo, ahihi = convert(NTuple{2,Int16x2}, ahi)
+    return (alolo, ahilo, alohi, ahihi)::NTuple{4,Int16x2}
+end
+function convert_swapped_withoffset(::Type{NTuple{4,Int16x2}}, a::Int4x8)
+    alo, ahi = convert_swapped_withoffset(NTuple{2,Int8x4}, a)
     alolo, alohi = convert(NTuple{2,Int16x2}, alo)
     ahilo, ahihi = convert(NTuple{2,Int16x2}, ahi)
     return (alolo, ahilo, alohi, ahihi)::NTuple{4,Int16x2}
@@ -1413,6 +1431,28 @@ CUDA.@device_override @inline function Base.convert(::Type{NTuple{4,Float16x2}},
     b3 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x08, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
     b4 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x08, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
     return (b1, b2, b3, b4)
+end
+export convert_swapped_withoffset
+@inline function convert_swapped_withoffset(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+    # Note: `Float16(1536 + i)` has the bit pattern for `i` in the lowermost bits. This works for -512 ≤ i < 512.
+    offset = Float16x2(1536, 1536)
+    a1, a2, a3, a4 = convert_swapped_withoffset(NTuple{4,Int16x2}, a)
+    b1 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a1) - offset
+    b2 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a2) - offset
+    b3 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a3) - offset
+    b4 = reinterpret(Float16x2, reinterpret(Int16x2, offset) + a4) - offset
+    return (b1, b2, b3, b4)
+end
+CUDA.@device_override @inline function convert_swapped_withoffset(::Type{NTuple{4,Float16x2}}, a::Int4x8)
+    offset1 = Float16x2(0x0400, 0x0400)
+    offset2 = Float16x2(0x0040, 0x0040)
+    a′ = a                      # no need to undo the offset encoding
+    b1 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x00, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
+    b2 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x00, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
+    b3 = Float16x2(bitifelse(0x000f000f, a′.val >> 0x08, offset1.val)) - (offset1 + Float16x2(0x08, 0x08))
+    b4 = Float16x2(bitifelse(0x00f000f0, a′.val >> 0x08, offset2.val)) - (offset2 + Float16x2(0x08, 0x08))
+    c1, c2, c3, c4 = b2, b1, b4, b3 # swap
+    return (c1, c2, c3, c4)
 end
 
 Int4x8(a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
