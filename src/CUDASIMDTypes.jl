@@ -519,15 +519,15 @@ Base.:(==)(a::Int2x16, b::Int2x16) = a.val == b.val
 
 ################################################################################
 
-function Int4x8(a1::Int8, a2::Int8, a3::Int8, a4::Int8, a5::Int8, a6::Int8, a7::Int8, a8::Int8)
+@inline function Int4x8(a1::Int8, a2::Int8, a3::Int8, a4::Int8, a5::Int8, a6::Int8, a7::Int8, a8::Int8)
     return Int4x8((Int8x4(a1, a3, a5, a7), Int8x4(a2, a4, a6, a8)))
 end
-function Int4x8(a1::Integer, a2::Integer, a3::Integer, a4::Integer, a5::Integer, a6::Integer, a7::Integer, a8::Integer)
+@inline function Int4x8(a1::Integer, a2::Integer, a3::Integer, a4::Integer, a5::Integer, a6::Integer, a7::Integer, a8::Integer)
     return Int4x8(a1 % Int8, a2 % Int8, a3 % Int8, a4 % Int8, a5 % Int8, a6 % Int8, a7 % Int8, a8 % Int8)
 end
-Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
-Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
-Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
+@inline Int4x8(a::NTuple{8,<:Integer}) = Int4x8(a...)
+@inline Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
+@inline Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
 Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{2,Int8x4})
@@ -1465,7 +1465,7 @@ CUDA.@device_override @inline function convert_swapped_withoffset(::Type{NTuple{
 end
 
 # For backward compatibility
-Int4x8(a::NTuple{4,Float16x2}) = convert(Int4x8, a)
+@inline Int4x8(a::NTuple{4,Float16x2}) = convert(Int4x8, a)
 
 Base.convert(::Type{Int4x8}, a::NTuple{4,Float16x2}) = Int4x8(Int16x2.(a))
 CUDA.@device_override @inline function Base.convert(::Type{Int4x8}, a::NTuple{4,Float16x2})
