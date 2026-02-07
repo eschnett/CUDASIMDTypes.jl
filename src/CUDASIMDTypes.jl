@@ -642,11 +642,11 @@ end
 Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8) = min(max(a, alo), ahi)
 
 function any_zero(a::Int4x8)
-    a1111 = a.val
-    a11 = a1111 | ((a1111 & 0xcccccccc) >> 0x2)
-    a1 = a11 | ((a11 & 0x22222222) >> 0x1)
-    a1 &= 0x11111111
-    return a1 != 0x11111111
+    as = a.val
+    as |= as >> 0x2
+    as |= as >> 0x1
+    as &= 0x11111111
+    return as != 0x11111111
 end
 Base.:(==)(a::Int4x8, b::Int4x8) = a.val == b.val
 
