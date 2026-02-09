@@ -639,7 +639,13 @@ function Base.max(a::Int4x8, b::Int4x8)
     rs = max.(as, bs)
     return Int4x8(rs...)
 end
-Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8) = min(max(a, alo), ahi)
+function Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8)
+    as = convert(NTuple{8,Int32}, a)
+    alos = convert(NTuple{8,Int32}, alo)
+    ahis = convert(NTuple{8,Int32}, ahi)
+    rs = min.(max.(as, alos), ahis)
+    return Int4x8(rs...)
+end
 
 function any_zero(a::Int4x8)
     as = a.val
