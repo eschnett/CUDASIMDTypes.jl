@@ -29,6 +29,16 @@ end
 
 clamp1(a, b, c) = clamp(a, min(b, c), max(b, c))
 
+offset1(x) = mod(x, 16) - 8
+let
+    for x in -8:+7
+        y = offset1(x)
+        @assert -8 <= y <= +7
+        @assert offset1(y) == x
+        @assert mod(x - y, 16) == 8
+    end
+end
+
 almost_half(x::T) where {T<:Real} = max(T(0.5) - eps(x), zero(x))
 inc(x::T) where {T<:Real} = x + almost_half(x)
 dec(x::T) where {T<:Real} = x - almost_half(x)
@@ -393,8 +403,7 @@ Random.seed!(0)
     z = Int4x2[]
 
     for xlo1 in (-Int32(8)):(+Int32(7)),
-        xhi1 in (-Int32(8)):(+Int32(7)),
-        ylo1 in (-Int32(8)):(+Int32(7)),
+        xhi1 in (-Int32(8)):(+Int32(7)), ylo1 in (-Int32(8)):(+Int32(7)),
         yhi1 in (-Int32(8)):(+Int32(7))
 
         zlo1 = rand((-Int32(8)):(+Int32(7)))
@@ -514,6 +523,12 @@ Random.seed!(0)
     compare(
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, -x),
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((-xlo, -xhi)),
+    )
+
+    # swap and offset
+    compare(
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> convert(NTuple{2,Int32}, swap_offset(x)),
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> make_int4.((offset1(xhi), offset1(xlo))),
     )
 
     # logical operations
@@ -953,6 +968,20 @@ Random.seed!(0)
 
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, +x), (n, xs, ys, zs, x, y, z) -> make_int4.(.+xs))
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, -x), (n, xs, ys, zs, x, y, z) -> make_int4.(.-xs))
+
+    compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, swap_offset(x)),
+        (n, xs, ys, zs, x, y, z) -> (
+            offset1(xs[2]),
+            offset1(xs[1]),
+            offset1(xs[4]),
+            offset1(xs[3]),
+            offset1(xs[6]),
+            offset1(xs[5]),
+            offset1(xs[8]),
+            offset1(xs[7]),
+        ),
+    )
 
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x & y), (n, xs, ys, zs, x, y, z) -> xs .& ys)
     compare((n, xs, ys, zs, x, y, z) -> convert(NTuple{8,Int32}, x | y), (n, xs, ys, zs, x, y, z) -> xs .| ys)

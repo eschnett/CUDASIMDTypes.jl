@@ -50,14 +50,10 @@ See [`make_lop3_lut`](@ref) for creating the look-up table `lut`.
 """
 function lop3(a::UInt32, b::UInt32, c::UInt32, lut::UInt32)
     z = UInt32(0)
-    return (ifelse(lut & 0x01 ≠ 0, ~z, z) & ~a & ~b & ~c) |
-           (ifelse(lut & 0x02 ≠ 0, ~z, z) & ~a & ~b & c) |
-           (ifelse(lut & 0x04 ≠ 0, ~z, z) & ~a & b & ~c) |
-           (ifelse(lut & 0x08 ≠ 0, ~z, z) & ~a & b & c) |
-           (ifelse(lut & 0x10 ≠ 0, ~z, z) & a & ~b & ~c) |
-           (ifelse(lut & 0x20 ≠ 0, ~z, z) & a & ~b & c) |
-           (ifelse(lut & 0x40 ≠ 0, ~z, z) & a & b & ~c) |
-           (ifelse(lut & 0x80 ≠ 0, ~z, z) & a & b & c)
+    return (ifelse(lut & 0x01 ≠ 0, ~z, z) & ~a & ~b & ~c) | (ifelse(lut & 0x02 ≠ 0, ~z, z) & ~a & ~b & c) |
+           (ifelse(lut & 0x04 ≠ 0, ~z, z) & ~a & b & ~c) | (ifelse(lut & 0x08 ≠ 0, ~z, z) & ~a & b & c) |
+           (ifelse(lut & 0x10 ≠ 0, ~z, z) & a & ~b & ~c) | (ifelse(lut & 0x20 ≠ 0, ~z, z) & a & ~b & c) |
+           (ifelse(lut & 0x40 ≠ 0, ~z, z) & a & b & ~c) | (ifelse(lut & 0x80 ≠ 0, ~z, z) & a & b & c)
 end
 CUDA.@device_override function lop3(a::UInt32, b::UInt32, c::UInt32, lut::UInt32)
     return LLVM.Interop.@asmcall(
@@ -344,6 +340,14 @@ function Base.max(a::Int4x2, b::Int4x2)
     return Int4x2(rs...)
 end
 Base.clamp(a::Int4x2, alo::Int4x2, ahi::Int4x2) = min(max(a, alo), ahi)
+
+export swap_offset
+function swap_offset(a::Int4x2)
+    blo = (a.val >> 0x4) & 0x0f
+    bhi = (a.val << 0x4) & 0xf0
+    b = (blo | bhi) ⊻ 0x88
+    return Int4x2(b)
+end
 
 export any_zero
 any_zero(a::Int4x2) = iszero(a.val & 0x0f) | iszero(a.val & 0xf0)
@@ -647,6 +651,13 @@ function Base.clamp(a::Int4x8, alo::Int4x8, ahi::Int4x8)
     return Int4x8(rs...)
 end
 
+function swap_offset(a::Int4x8)
+    blo = (a.val >> 0x4) & 0x0f0f0f0f
+    bhi = (a.val << 0x4) & 0xf0f0f0f0
+    b = (blo | bhi) ⊻ 0x88888888
+    return Int4x8(b)
+end
+
 function any_zero(a::Int4x8)
     as = a.val
     as |= as >> 0x2
@@ -660,9 +671,7 @@ Base.:(==)(a::Int4x8, b::Int4x8) = a.val == b.val
 
 function Int8x4(a1::Int8, a2::Int8, a3::Int8, a4::Int8)
     return Int8x4(
-        (a4 % UInt8 % UInt32) << 0x18 |
-        (a3 % UInt8 % UInt32) << 0x10 |
-        (a2 % UInt8 % UInt32) << 0x08 |
+        (a4 % UInt8 % UInt32) << 0x18 | (a3 % UInt8 % UInt32) << 0x10 | (a2 % UInt8 % UInt32) << 0x08 |
         (a1 % UInt8 % UInt32) << 0x00,
     )
 end
