@@ -856,9 +856,10 @@ Random.seed!(0)
     end
 
     compare((n, xs, ys, zs, x, y, z) -> Int4x8(xs), (n, xs, ys, zs, x, y, z) -> x)
+    compare((n, xs, ys, zs, x, y, z) -> Int4x8(xs), (n, xs, ys, zs, x, y, z) -> x)
     compare(
-        (n, xs, ys, zs, x, y, z) -> Int4x8((Int8x4(xs[1], xs[3], xs[5], xs[7]), Int8x4(xs[2], xs[4], xs[6], xs[8]))),
-        (n, xs, ys, zs, x, y, z) -> x,
+        (n, xs, ys, zs, x, y, z) -> convert_swapped_withoffset(Int4x8, x),
+        (n, xs, ys, zs, x, y, z) -> Int4x8(xs[2] + 8, xs[1] + 8, xs[4] + 8, xs[3] + 8, xs[6] + 8, xs[5] + 8, xs[8] + 8, xs[7] + 8),
     )
     compare(
         (n, xs, ys, zs, x, y, z) ->

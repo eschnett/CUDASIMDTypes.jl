@@ -535,6 +535,17 @@ end
 @inline Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 @inline Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
+function convert_swapped_withoffset(::Type{Int4x8}, a::Int4x8)
+    a1 = a.val
+    # swap
+    b1_lo = a1 >>> 0x04
+    b1_hi = a1 << 0x04
+    b2 = (b1_lo & 0x0f0f0f0f) | (b1_hi & 0xf0f0f0f0)
+    # offset
+    b3 = b2 ⊻ 0x88888888
+    return Int4x8(b3)
+end
+
 Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{2,Int8x4})
     return Int4x8(bitifelse(0x0f0f0f0f, a[2].val << 0x00, a[1].val << 0x04)) ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)
