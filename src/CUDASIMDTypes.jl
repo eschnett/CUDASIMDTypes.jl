@@ -543,7 +543,7 @@ function convert_swapped_withoffset(::Type{Int4x8}, a::Int4x8)
     b2 = (b1_lo & 0x0f0f0f0f) | (b1_hi & 0xf0f0f0f0)
     # offset
     b3 = b2 ⊻ 0x88888888
-    return Int4x8(b2)
+    return Int4x8(b3)
 end
 
 Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
