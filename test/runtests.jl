@@ -569,7 +569,7 @@ Random.seed!(0)
 
     # comparisons
     compare(
-        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any_zero(x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any(iszero.((xlo, xhi)))
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any_iszero(x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any(iszero.((xlo, xhi)))
     )
     compare(
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x == y, (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> all((xlo, xhi) .== (ylo, yhi))
@@ -993,7 +993,7 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> make_int4.(clamp1.(xs, ys, zs)),
     )
 
-    compare((n, xs, ys, zs, x, y, z) -> any_zero(x), (n, xs, ys, zs, x, y, z) -> any(iszero.(xs)))
+    compare((n, xs, ys, zs, x, y, z) -> any_iszero(x), (n, xs, ys, zs, x, y, z) -> any(iszero.(xs)))
     compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
     compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
 
