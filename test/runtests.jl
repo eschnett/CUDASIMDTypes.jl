@@ -569,7 +569,7 @@ Random.seed!(0)
 
     # comparisons
     compare(
-        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any_zero(x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any(iszero.((xlo, xhi)))
+        (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any_iszero(x), (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> any(iszero.((xlo, xhi)))
     )
     compare(
         (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> x == y, (xlo, xhi, ylo, yhi, zlo, zhi, x, y, z) -> all((xlo, xhi) .== (ylo, yhi))
@@ -858,10 +858,6 @@ Random.seed!(0)
     compare((n, xs, ys, zs, x, y, z) -> Int4x8(xs), (n, xs, ys, zs, x, y, z) -> x)
     compare((n, xs, ys, zs, x, y, z) -> Int4x8(xs), (n, xs, ys, zs, x, y, z) -> x)
     compare(
-        (n, xs, ys, zs, x, y, z) -> convert_swapped_withoffset(Int4x8, x),
-        (n, xs, ys, zs, x, y, z) -> Int4x8(xs[2] + 8, xs[1] + 8, xs[4] + 8, xs[3] + 8, xs[6] + 8, xs[5] + 8, xs[8] + 8, xs[7] + 8),
-    )
-    compare(
         (n, xs, ys, zs, x, y, z) ->
             Int4x8((Int16x2(xs[1], xs[5]), Int16x2(xs[2], xs[6]), Int16x2(xs[3], xs[7]), Int16x2(xs[4], xs[8]))),
         (n, xs, ys, zs, x, y, z) -> x,
@@ -997,7 +993,7 @@ Random.seed!(0)
         (n, xs, ys, zs, x, y, z) -> make_int4.(clamp1.(xs, ys, zs)),
     )
 
-    compare((n, xs, ys, zs, x, y, z) -> any_zero(x), (n, xs, ys, zs, x, y, z) -> any(iszero.(xs)))
+    compare((n, xs, ys, zs, x, y, z) -> any_iszero(x), (n, xs, ys, zs, x, y, z) -> any(iszero.(xs)))
     compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .== ys))
     compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!= ys))
 

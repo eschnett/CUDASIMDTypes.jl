@@ -349,8 +349,10 @@ function swap_offset(a::Int4x2)
     return Int4x2(b)
 end
 
+export any_iszero
+any_iszero(a::Int4x2) = iszero(a.val & 0x0f) | iszero(a.val & 0xf0)
 export any_zero
-any_zero(a::Int4x2) = iszero(a.val & 0x0f) | iszero(a.val & 0xf0)
+const any_zero = any_iszero     # backward compatibility
 Base.:(==)(a::Int4x2, b::Int4x2) = a.val == b.val
 
 ################################################################################
@@ -535,17 +537,6 @@ end
 @inline Int4x8(a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 @inline Int4x8(a::NTuple{4,Int16x2}) = Int4x8((Int8x4((a[1], a[3])), Int8x4((a[2], a[4]))))
 
-function convert_swapped_withoffset(::Type{Int4x8}, a::Int4x8)
-    a1 = a.val
-    # swap
-    b1_lo = a1 >>> 0x04
-    b1_hi = a1 << 0x04
-    b2 = (b1_lo & 0x0f0f0f0f) | (b1_hi & 0xf0f0f0f0)
-    # offset
-    b3 = b2 ⊻ 0x88888888
-    return Int4x8(b3)
-end
-
 Base.convert(::Type{Int4x8}, a::NTuple{2,Int8x4}) = Int4x8(bitifelse(0x0f0f0f0f, a[1].val << 0x00, a[2].val << 0x04))
 function convert_swapped_withoffset(::Type{Int4x8}, a::NTuple{2,Int8x4})
     return Int4x8(bitifelse(0x0f0f0f0f, a[2].val << 0x00, a[1].val << 0x04)) ⊻ Int4x8(8, 8, 8, 8, 8, 8, 8, 8)
@@ -669,7 +660,7 @@ function swap_offset(a::Int4x8)
     return Int4x8(b)
 end
 
-function any_zero(a::Int4x8)
+function any_iszero(a::Int4x8)
     as = a.val
     as |= as >> 0x2
     as |= as >> 0x1
@@ -1155,6 +1146,13 @@ CUDA.@device_override function swapped_complex_muladd(a::Float16x2, b::Float16x2
     )
 end
 
+export all_isfinite
+function all_isfinite(a::Float16x2)
+    alo, ahi = convert(NTuple{2,Float16}, a)
+    return isfinite(alo) && isfinite(ahi)
+end
+export all_finite
+const all_finite = all_isfinite # backward compatibility
 Base.:(==)(a::Float16x2, b::Float16x2) = a.val == b.val
 
 ################################################################################
@@ -1374,6 +1372,10 @@ end
 export swapped_complex_muladd
 swapped_complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
 
+function all_isfinite(a::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    return isfinite(alo) && isfinite(ahi)
+end
 Base.:(==)(a::BFloat16x2, b::BFloat16x2) = a.val == b.val
 
 ################################################################################
