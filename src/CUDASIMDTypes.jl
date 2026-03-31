@@ -349,8 +349,9 @@ function swap_offset(a::Int4x2)
     return Int4x2(b)
 end
 
-export any_zero
-any_zero(a::Int4x2) = iszero(a.val & 0x0f) | iszero(a.val & 0xf0)
+export any_iszero
+any_iszero(a::Int4x2) = iszero(a.val & 0x0f) | iszero(a.val & 0xf0)
+const any_zero = any_iszero     # backward compatibility
 Base.:(==)(a::Int4x2, b::Int4x2) = a.val == b.val
 
 ################################################################################
@@ -658,7 +659,7 @@ function swap_offset(a::Int4x8)
     return Int4x8(b)
 end
 
-function any_zero(a::Int4x8)
+function any_iszero(a::Int4x8)
     as = a.val
     as |= as >> 0x2
     as |= as >> 0x1
@@ -1144,11 +1145,11 @@ CUDA.@device_override function swapped_complex_muladd(a::Float16x2, b::Float16x2
     )
 end
 
-export all_finite
-function all_finite(a::Float16x2)
+function all_isfinite(a::Float16x2)
     alo, ahi = convert(NTuple{2,Float16}, a)
     return isfinite(alo) && isfinite(ahi)
 end
+const all_finite = all_isfinite # backward compatibility
 Base.:(==)(a::Float16x2, b::Float16x2) = a.val == b.val
 
 ################################################################################
@@ -1368,8 +1369,8 @@ end
 export swapped_complex_muladd
 swapped_complex_muladd(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2) = reverse(complex_muladd(reverse(a), reverse(b), reverse(c)))
 
-export all_finite
-function all_finite(a::BFloat16x2)
+export all_isfinite
+function all_isfinite(a::BFloat16x2)
     alo, ahi = convert(NTuple{2,BFloat16}, a)
     return isfinite(alo) && isfinite(ahi)
 end
