@@ -29,6 +29,10 @@ end
 
 clamp1(a, b, c) = clamp(a, min(b, c), max(b, c))
 
+# Reference implementation of the PTX `.sat` modifier
+sat(x::T) where {T<:Real} = isnan(x) ? zero(T) : clamp(x, zero(T), one(T))
+tuple_muladd_sat(x::NTuple{2}, y::NTuple{2}, z::NTuple{2}) = sat.(muladd.(x, y, z))
+
 offset1(x) = mod(x, 16) - 8
 let
     for x in -8:+7
@@ -1327,6 +1331,11 @@ Random.seed!(0)
         atol=2 * eps(Float16),
     )
     compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, muladd_sat(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_muladd_sat(xs, ys, zs);
+        atol=2 * eps(Float16),
+    )
+    compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_muladd(x, y, z)),
         (n, xs, ys, zs, x, y, z) -> tuple_complex_muladd(xs, ys, zs);
         atol=3 * eps(Float16),
@@ -1339,6 +1348,14 @@ Random.seed!(0)
 
     compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .=== ys))
     compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!== ys))
+
+    let one_ = Float16x2(1, 1), two = Float16x2(2, 2), zero_ = Float16x2(0, 0), nan = Float16x2(NaN, NaN)
+        @test muladd_sat(two, two, zero_) == one_     # +4 saturates to +1
+        @test muladd_sat(two, -two, zero_) == zero_   # -4 saturates to +0
+        @test muladd_sat(Float16x2(0.5f0, 0.25f0), one_, zero_) == Float16x2(0.5f0, 0.25f0)
+        @test muladd_sat(nan, one_, zero_) == zero_   # NaN is flushed to +0
+        @test muladd_sat(one_, one_, nan) == zero_
+    end
 
     print("$(CR)$(EL)")
     flush(stdout)
@@ -1453,6 +1470,11 @@ Random.seed!(0)
         atol=2 * eps(BFloat16),
     )
     compare(
+        (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, muladd_sat(x, y, z)),
+        (n, xs, ys, zs, x, y, z) -> tuple_muladd_sat(xs, ys, zs);
+        atol=2 * eps(BFloat16),
+    )
+    compare(
         (n, xs, ys, zs, x, y, z) -> convert(NTuple{2,Float32}, complex_muladd(x, y, z)),
         (n, xs, ys, zs, x, y, z) -> tuple_complex_muladd(xs, ys, zs);
         atol=3 * eps(BFloat16),
@@ -1465,6 +1487,14 @@ Random.seed!(0)
 
     compare((n, xs, ys, zs, x, y, z) -> x == y, (n, xs, ys, zs, x, y, z) -> all(xs .=== ys))
     compare((n, xs, ys, zs, x, y, z) -> x != y, (n, xs, ys, zs, x, y, z) -> any(xs .!== ys))
+
+    let one_ = BFloat16x2(1, 1), two = BFloat16x2(2, 2), zero_ = BFloat16x2(0, 0), nan = BFloat16x2(NaN, NaN)
+        @test muladd_sat(two, two, zero_) == one_     # +4 saturates to +1
+        @test muladd_sat(two, -two, zero_) == zero_   # -4 saturates to +0
+        @test muladd_sat(BFloat16x2(0.5f0, 0.25f0), one_, zero_) == BFloat16x2(0.5f0, 0.25f0)
+        @test muladd_sat(nan, one_, zero_) == zero_   # NaN is flushed to +0
+        @test muladd_sat(one_, one_, nan) == zero_
+    end
 
     print("$(CR)$(EL)")
     flush(stdout)

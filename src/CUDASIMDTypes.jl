@@ -98,6 +98,11 @@ bitifelse(cond::SmallInt, x::T, y::T) where {T<:SmallInt} = bitifelse(cond % UIn
 
 ################################################################################
 
+# PTX `.sat` semantics: clamp to `[0, 1]`, flushing `NaN` to `+0`
+sat(x::T) where {T<:AbstractFloat} = ifelse(isnan(x), zero(T), clamp(x, zero(T), one(T)))
+
+################################################################################
+
 """
     d = cvt_pack_s8(a::Int32, b::Int32)
     d::UInt32
@@ -987,7 +992,21 @@ CUDA.@device_override function Base.muladd(a::Float16x2, b::Float16x2, c::Float1
     )
 end
 export muladd_sat
+"""
+    muladd_sat(a, b, c)
+
+Saturating fused multiply-add `a * b + c`.
+
+Each element of the result is clamped to `[0, 1]`; `NaN` results are
+flushed to `+0`.
+"""
 function muladd_sat(a::Float16x2, b::Float16x2, c::Float16x2)
+    alo, ahi = convert(NTuple{2,Float16}, a)
+    blo, bhi = convert(NTuple{2,Float16}, b)
+    clo, chi = convert(NTuple{2,Float16}, c)
+    return Float16x2(sat(muladd(alo, blo, clo)), sat(muladd(ahi, bhi, chi)))
+end
+CUDA.@device_override function muladd_sat(a::Float16x2, b::Float16x2, c::Float16x2)
     return Float16x2(
         LLVM.Interop.@asmcall(
             "fma.rn.sat.f16x2 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{UInt32,UInt32,UInt32}, a.val, b.val, c.val
@@ -1300,6 +1319,12 @@ CUDA.@device_override function Base.muladd(a::BFloat16x2, b::BFloat16x2, c::BFlo
 end
 export muladd_sat
 function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    alo, ahi = convert(NTuple{2,BFloat16}, a)
+    blo, bhi = convert(NTuple{2,BFloat16}, b)
+    clo, chi = convert(NTuple{2,BFloat16}, c)
+    return BFloat16x2(sat(muladd(alo, blo, clo)), sat(muladd(ahi, bhi, chi)))
+end
+CUDA.@device_override function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
     return BFloat16x2(
         LLVM.Interop.@asmcall(
             "fma.rn.sat.bf16x2 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{UInt32,UInt32,UInt32}, a.val, b.val, c.val
