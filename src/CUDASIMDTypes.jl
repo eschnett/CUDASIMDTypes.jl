@@ -1324,12 +1324,9 @@ function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
     clo, chi = convert(NTuple{2,BFloat16}, c)
     return BFloat16x2(sat(muladd(alo, blo, clo)), sat(muladd(ahi, bhi, chi)))
 end
-CUDA.@device_override function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
-    return BFloat16x2(
-        LLVM.Interop.@asmcall(
-            "fma.rn.sat.bf16x2 \$0, \$1, \$2, \$3;", "=r,r,r,r", UInt32, Tuple{UInt32,UInt32,UInt32}, a.val, b.val, c.val
-        )
-    )
+CUDA.@device_override @inline function muladd_sat(a::BFloat16x2, b::BFloat16x2, c::BFloat16x2)
+    # PTX has no `fma.sat` for bf16x2. `max` returns its non-NaN operand, which flushes NaN to +0.
+    return clamp(muladd(a, b, c), zero(BFloat16x2), BFloat16x2(0x3f803f80)) # (1, 1)
 end
 function Base.max(a::BFloat16x2, b::BFloat16x2)
     alo, ahi = convert(NTuple{2,BFloat16}, a)
