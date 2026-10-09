@@ -1448,14 +1448,14 @@ end
 
 # const lop3_and_xor_lut = Val(make_lop3_lut((a, b, c) -> (a & b) ⊻ c))
 
-function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
+@inline function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
     offset = Float16x2(1536, 1536)
     alo, ahi = convert(NTuple{2,Int16x2}, a)
     blo = reinterpret(Float16x2, reinterpret(Int16x2, offset) + alo) - offset
     bhi = reinterpret(Float16x2, reinterpret(Int16x2, offset) + ahi) - offset
     return (blo, bhi)
 end
-CUDA.@device_override function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
+CUDA.@device_override @inline function Base.convert(::Type{NTuple{2,Float16x2}}, a::Int8x4)
     offset = Float16x2(0x400, 0x400)
     # alo = lop3(a.val, 0x00ff00ff, 0x00800080, lop3_and_xor_lut)::UInt32
     # blo = Float16x2(offset.val + alo) - (offset + Float16x2(0x80, 0x80))
