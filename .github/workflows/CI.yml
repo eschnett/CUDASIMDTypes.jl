@@ -2,6 +2,15 @@ name: CI
 on:
   - push
   - pull_request
+  - workflow_dispatch
+concurrency:
+  # Cancel superseded runs on the same branch/PR
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+permissions:
+  # julia-actions/cache needs `actions: write` to prune old caches
+  actions: write
+  contents: read
 jobs:
   test:
     name: Julia ${{matrix.version}} - ${{matrix.os}} - ${{matrix.arch}} - ${{github.event_name}}
@@ -33,10 +42,12 @@ jobs:
           #   version: "1.13"
           - arch: "x64"
             os: "ubuntu-26.04"
-            version: "1.12"
+            version: "1.14"
+            # 1.14 is not yet released; this picks up its alpha/beta/rc releases
+            prerelease: true
           - arch: "x64"
             os: "ubuntu-26.04"
-            version: "1.11"
+            version: "1.12"
           - arch: "x64"
             os: "ubuntu-26.04"
             version: "1.10"
@@ -46,6 +57,7 @@ jobs:
         with:
           version: ${{matrix.version}}
           arch: ${{matrix.arch}}
+          include-all-prereleases: ${{matrix.prerelease || false}}
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
         env:
@@ -56,4 +68,4 @@ jobs:
         env:
           CODECOV_TOKEN: cd2c7e8d-4c9f-4740-aee6-770e01673120
         with:
-          file: lcov.info
+          files: lcov.info
