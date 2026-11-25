@@ -1,0 +1,23 @@
+# See <https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference>
+version: 2
+updates:
+  # Keep GitHub Actions in .github/workflows up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+  # Widen [compat] bounds in Project.toml when dependencies release new versions
+  - package-ecosystem: "julia"
+    directories:
+      - "/"
+      - "/docs"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-julia-packages:
+        patterns:
+          - "*"

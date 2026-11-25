@@ -81,5 +81,5 @@ rather than inventing a new one.
   `all_finite`/`all_isfinite`), and both names are exported.
 - Bump `version` in `Project.toml` in the same commit that adds a feature;
   releases are tagged by TagBot from a registrator comment.
-- Minimum Julia is 1.10; CI covers 1.10/1.11/1.12 on Linux, macOS, Windows,
+- Minimum Julia is 1.10; CI covers 1.10/1.12/1.13/1.14 (pre-release) on Linux, macOS, Windows,
   x64 and arm64.
